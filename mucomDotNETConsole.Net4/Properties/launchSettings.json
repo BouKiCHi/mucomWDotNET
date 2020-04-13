@@ -1,8 +1,8 @@
 {
   "profiles": {
-    "Player": {
+    "Console.Net4": {
       "commandName": "Project",
-      "commandLineArgs": "s2.mub",
+      "commandLineArgs": "s2.muc",
       "workingDirectory": "C:\\workspace\\mucom88_work\\songtest\\mod"
     }
   }
