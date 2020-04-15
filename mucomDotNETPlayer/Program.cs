@@ -126,7 +126,7 @@ namespace mucomDotNET.Player
                 MDSound.ym2608 ym2608_2 = new MDSound.ym2608();
                 MDSound.MDSound.Chip chip2 = new MDSound.MDSound.Chip {
                     type = MDSound.MDSound.enmInstrumentType.YM2608,
-                    ID = 1,
+                    ID = 0,
                     Instrument = ym2608_2,
                     Update = ym2608_2.Update,
                     Start = ym2608_2.Start,
@@ -556,12 +556,12 @@ namespace mucomDotNET.Player
                 case 0:
                     var portno = (byte)dat.port;
                     var chipId = (byte)0;
+                    var chipIndex = 0;
                     if ((portno & 0x02) != 0) {
-                        chipId = 1;
+                        chipIndex = 1;
                     }
                     portno &= 0x01;
-
-                    mds.WriteYM2608(chipId, portno, (byte)dat.address, (byte)dat.data);
+                    mds.WriteYM2608(chipIndex, chipId, portno, (byte)dat.address, (byte)dat.data);
                     break;
                 case 1:
                 case 2:

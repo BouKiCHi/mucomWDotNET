@@ -281,7 +281,6 @@ namespace mucomDotNET.Driver
             work.soundWork.TIMER_B = (work.mData[work.mDataAdr] != null) ? ((byte)work.mData[work.mDataAdr].dat) : (byte)200;
             work.soundWork.TB_TOP = ++work.mDataAdr;
 
-            // (CH1DATのこと)
             InitWork(0);
 
             work.soundWork.C2NUM = 0;
