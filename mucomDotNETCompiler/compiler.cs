@@ -41,7 +41,7 @@ namespace mucomDotNET.Compiler
 
         public void Init()
         {
-            bool UseTrackExtend = false;
+            bool UseTrackExtend = true;
             muc88 = new Muc88(mucInfo, enc, UseTrackExtend);
             msub = new Msub(mucInfo, enc);
             expand = new expand(mucInfo);

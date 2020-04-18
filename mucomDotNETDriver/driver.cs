@@ -119,7 +119,7 @@ namespace mucomDotNET.Driver
 
             if (loadADPCMOnly) return;
 
-            bool UseTrackExtend = false;
+            bool UseTrackExtend = true;
             music2 = new Music2(work, WriteRegister, UseTrackExtend);
             music2.notSoundBoard2 = notSoundBoard2;
         }
