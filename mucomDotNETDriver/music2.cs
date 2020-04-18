@@ -10,7 +10,7 @@ namespace mucomDotNET.Driver
 {
     public class Music2
     {
-        public const int MAXCH = 22;
+        //public const int MAXCH = 22;
         // **	FM CONTROL COMMAND(s)   **
         public Action[] FMCOM = null;
         public Action[] FMCOM2 = null;
@@ -31,7 +31,20 @@ namespace mucomDotNET.Driver
             WriteOPNARegister(d2);
         }
 
+        /// <summary>
+        /// トラック拡張時のフラグ
+        /// </summary>
+        public bool trackExtend = false;
 
+        /// <summary>
+        /// ドライバ再生時の最大チャンネル数
+        /// </summary>
+        public int MaxDriverChannel = 11;
+
+        public Music2(Work work, Action<ChipDatum> WriteOPNARegister, bool extend) : this(work, WriteOPNARegister) {
+            trackExtend = extend;
+            MaxDriverChannel = trackExtend ? 22 : 11;
+        }
         public Music2(Work work, Action<ChipDatum> WriteOPNARegister)
         {
             this.work = work;
@@ -274,7 +287,7 @@ namespace mucomDotNET.Driver
 
 
             for (int i = 0; i < num; i++) {
-                work.mDataAdr += 1 + MAXCH * 4;
+                work.mDataAdr += 1 + (uint)MaxDriverChannel * 4;
                 work.mDataAdr = work.soundWork.MU_TOP + Cmn.getLE16(work.mData, (uint)work.mDataAdr);
             }
 
@@ -283,9 +296,11 @@ namespace mucomDotNET.Driver
 
             InitWork(0);
 
-            work.soundWork.C2NUM = 0;
-            work.soundWork.CHNUM = 0;
-            InitWork(11);
+            if (trackExtend) {
+                work.soundWork.C2NUM = 0;
+                work.soundWork.CHNUM = 0;
+                InitWork(11);
+            }
 
             work.fmVoiceAtMusData = GetVoiceDataAtMusData();
 
@@ -502,13 +517,6 @@ namespace mucomDotNET.Driver
         }
 
 
-
-
-
-
-
-
-
         // **	MUSIC MAIN	**
 
         public void PL_SND()
@@ -523,11 +531,11 @@ namespace mucomDotNET.Driver
             //FDOUT();
 
             int n = 0;
-            for(int i = 0; i < MAXCH; i++)
+            for(int i = 0; i < MaxDriverChannel; i++)
             {
                 if (work.soundWork.CHDAT[i].musicEnd) n++;
             }
-            if (n == MAXCH) work.Status = 0;
+            if (n == MaxDriverChannel) work.Status = 0;
         }
 
         // **	CALL FM		**
@@ -544,7 +552,7 @@ namespace mucomDotNET.Driver
             n = DriveOffset(11, n);
 
             if (work.maxLoopCount == -1) n = 0;
-            if (n == MAXCH)
+            if (n == MaxDriverChannel)
                 MSTOP();
         }
 
@@ -807,16 +815,17 @@ namespace mucomDotNET.Driver
         {
 
             byte a;
+            bool nrFlg = false;
             do
             {
                 Log.WriteLine(LogLevel.TRACE, string.Format("{0:x}", hl + 0xc200));
                 a = (byte)work.cd.mData[hl].dat;
                 //* 00H as end
-                if (a == 0)// ﾃﾞｰﾀ ｼｭｳﾘｮｳ ｦ ｼﾗﾍﾞﾙ
+                while (a == 0)// ﾃﾞｰﾀ ｼｭｳﾘｮｳ ｦ ｼﾗﾍﾞﾙ
                 {
                     work.cd.loopEndFlg = true;
 
-                    if (work.cd.dataTopAddress == -1)
+                    if (work.cd.dataTopAddress == -1 || nrFlg)
                     {
                         FMEND(hl);//* DATA TOP ADRESS ｶﾞ 0000H ﾃﾞ BGM
                         return; // ﾉ ｼｭｳﾘｮｳ ｦ ｹｯﾃｲ ｿﾚ ｲｶﾞｲﾊ ｸﾘｶｴｼ
@@ -824,6 +833,7 @@ namespace mucomDotNET.Driver
                     hl = (uint)work.cd.dataTopAddress;
                     a = (byte)work.cd.mData[hl].dat;// GET FLAG & LENGTH
                     work.cd.loopCounter++;
+                    nrFlg = true;
                 }
 
                 //演奏情報退避
@@ -842,6 +852,7 @@ namespace mucomDotNET.Driver
                 hl = work.hl;
             } while (true);
 
+            nrFlg = false;
             work.cd.lengthCounter = a & 0x7f;// SET WAIT COUNTER
 
 
