@@ -10,7 +10,6 @@ namespace mucomDotNET.Driver
 {
     public class Music2
     {
-        //public const int MAXCH = 22;
         // **	FM CONTROL COMMAND(s)   **
         public Action[] FMCOM = null;
         public Action[] FMCOM2 = null;
@@ -548,8 +547,10 @@ namespace mucomDotNET.Driver
             work.soundWork.PORTOFS = 0;
             n = DriveOffset(0, n);
 
-            work.soundWork.PORTOFS = 2;
-            n = DriveOffset(11, n);
+            if (trackExtend) {
+                work.soundWork.PORTOFS = 2;
+                n = DriveOffset(11, n);
+            }
 
             if (work.maxLoopCount == -1) n = 0;
             if (n == MaxDriverChannel)
