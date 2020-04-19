@@ -110,7 +110,7 @@ namespace mucomDotNET.Driver
 
                     var sw = new System.Diagnostics.Stopwatch();
                     sw.Start();
-                    foreach (ChipDatum dat in pcmSendData) { WriteRegister(dat); }
+                    foreach (ChipDatum dat in pcmSendData) { WriteRegisterAll(dat); }
                     sw.Stop();
 
                     WaitSendOPNA(sw.ElapsedMilliseconds, pcmSendData.Length);
@@ -305,11 +305,24 @@ namespace mucomDotNET.Driver
             }
         }
 
+        /// <summary>
+        /// すべてのチップに出力
+        /// </summary>
+        public void WriteRegisterAll(ChipDatum reg) {
+            var d1 = new ChipDatum(reg.port & 0x01, reg.address, reg.data, reg.time, reg.addtionalData);
+            WriteRegister(d1);
+
+            var d2 = new ChipDatum(0x02 + (reg.port & 0x01), reg.address, reg.data, reg.time, reg.addtionalData);
+            WriteRegister(d2);
+        }
+
         public void WriteRegister(ChipDatum reg)
         {
             lock (lockObjWriteReg)
             {
+                // タイマー関連の書き込み(ドライバ側で処理に使用)
                 if (reg.port == 0) { work.timer?.WriteReg((byte)reg.address, (byte)reg.data); }
+                // データ書き込み
                 WriteOPNA?.Invoke(reg);
             }
         }
