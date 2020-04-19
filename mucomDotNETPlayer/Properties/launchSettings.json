@@ -2,8 +2,7 @@
   "profiles": {
     "Player": {
       "commandName": "Project",
-      "commandLineArgs": "s2.mub",
-      "workingDirectory": "C:\\workspace\\mucom88_work\\songtest\\mod"
+      "commandLineArgs": "c:\\temp\\S_bug01.xml"
     }
   }
 }

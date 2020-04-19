@@ -16,6 +16,7 @@ namespace mucomDotNET.Compiler
         private readonly Func<EnmFCOMPNextRtn>[] COMTBL;
         //private readonly int errLin = 0;
         private iEncoding enc = null;
+        private work work = null;
 
         public bool trackExtend = false;
 
@@ -26,12 +27,13 @@ namespace mucomDotNET.Compiler
             return trackExtend ? 22 : 11;
         }
 
-        public Muc88(MUCInfo mucInfo, iEncoding enc, bool extend) : this(mucInfo, enc) {
+        public Muc88(work work, MUCInfo mucInfo, iEncoding enc, bool extend) : this(work, mucInfo, enc) {
             this.trackExtend = extend;
         } 
 
-        public Muc88(MUCInfo mucInfo,iEncoding enc)
+        public Muc88(work work, MUCInfo mucInfo,iEncoding enc)
         {
+            this.work = work;
             this.enc = enc;
             this.mucInfo = mucInfo;
             COMTBL = new Func<EnmFCOMPNextRtn>[]

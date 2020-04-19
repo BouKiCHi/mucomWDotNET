@@ -12,6 +12,7 @@ namespace mucomDotNET.Compiler
     {
         private byte[] srcBuf = null;
         private MUCInfo mucInfo = new MUCInfo();
+        private work work = null;
         private Muc88 muc88 = null;
         private Msub msub = null;
         private expand expand = null;
@@ -42,9 +43,10 @@ namespace mucomDotNET.Compiler
         public void Init()
         {
             bool UseTrackExtend = true;
-            muc88 = new Muc88(mucInfo, enc, UseTrackExtend);
-            msub = new Msub(mucInfo, enc);
-            expand = new expand(mucInfo);
+            work = new work();
+            muc88 = new Muc88(work, mucInfo, enc, UseTrackExtend);
+            msub = new Msub(work, mucInfo, enc);
+            expand = new expand(work, mucInfo);
             smon = new smon(mucInfo);
             muc88.msub = msub;
             muc88.expand = expand;

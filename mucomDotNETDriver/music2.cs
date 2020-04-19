@@ -1063,6 +1063,7 @@ namespace mucomDotNET.Driver
             FMSUB4(hl);// SET OP1
             if (work.carry)
             {
+                work.soundWork.FMSUB8_VAL = 0;//忘れずに戻す
                 return;
             }
 
