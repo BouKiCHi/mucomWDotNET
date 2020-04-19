@@ -30,6 +30,12 @@ namespace mucomDotNET.Driver
             WriteOPNARegister(d2);
         }
 
+        private void WriteOPNAOffsetOutput(ChipDatum dat) {
+            var d1 = new ChipDatum(work.soundWork.PORT_OFS + (dat.port & 0x01), dat.address, dat.data, dat.time, dat.addtionalData);
+            WriteOPNARegister(d1);
+        }
+
+
         /// <summary>
         /// トラック拡張時のフラグ
         /// </summary>
@@ -39,6 +45,12 @@ namespace mucomDotNET.Driver
         /// ドライバ再生時の最大チャンネル数
         /// </summary>
         public int MaxDriverChannel = 11;
+
+        /// <summary>
+        /// チップの最大チャンネル数
+        /// </summary>
+        public int MaxChipChannel = 11;
+
 
         public Music2(Work work, Action<ChipDatum> WriteOPNARegister, bool extend) : this(work, WriteOPNARegister) {
             trackExtend = extend;
@@ -274,17 +286,16 @@ namespace mucomDotNET.Driver
         // **   VOLUME OR FADEOUT etc RESET**
 
         public void WORKINIT() {
-            work.soundWork.C2NUM = 0;
-            work.soundWork.CHNUM = 0;
-            work.soundWork.PVMODE = 0;
+            for(int i = 0; i < work.MaxSoundWork; i++) {
+                work.SetChipWork(i);
+                WorkCommonInit();
+            }
 
-            work.soundWork.KEY_FLAG = 0;
-            work.soundWork.RANDUM = (ushort)System.DateTime.Now.Ticks;
-
+            work.SetChipWork(0);
             int num = work.soundWork.MUSNUM;
             work.mDataAdr = work.soundWork.MU_TOP;
 
-
+            // 曲数分スキップ
             for (int i = 0; i < num; i++) {
                 work.mDataAdr += 1 + (uint)MaxDriverChannel * 4;
                 work.mDataAdr = work.soundWork.MU_TOP + Cmn.getLE16(work.mData, (uint)work.mDataAdr);
@@ -293,12 +304,14 @@ namespace mucomDotNET.Driver
             work.soundWork.TIMER_B = (work.mData[work.mDataAdr] != null) ? ((byte)work.mData[work.mDataAdr].dat) : (byte)200;
             work.soundWork.TB_TOP = ++work.mDataAdr;
 
-            InitWork(0);
-
-            if (trackExtend) {
+            var TableAddress = work.soundWork.TB_TOP;
+            for(int i=0; i< work.MaxSoundWork; i++) {
+                work.SetChipWork(i);
                 work.soundWork.C2NUM = 0;
                 work.soundWork.CHNUM = 0;
-                InitWork(11);
+                work.soundWork.TB_TOP = TableAddress;
+                InitWork(0);
+                TableAddress = work.soundWork.TB_TOP;
             }
 
             work.fmVoiceAtMusData = GetVoiceDataAtMusData();
@@ -306,7 +319,17 @@ namespace mucomDotNET.Driver
             work.mData = null;
         }
 
+        private void WorkCommonInit() {
+            work.soundWork.C2NUM = 0;
+            work.soundWork.CHNUM = 0;
+
+            work.soundWork.KEY_FLAG = 0;
+            work.soundWork.RANDUM = (ushort)System.DateTime.Now.Ticks;
+        }
+
         private int InitWork(int ofs) {
+            work.soundWork.PVMODE = 0;
+
             int ch = 0;
             for (ch = 0; ch < 6; ch++) {
                 FMINIT(ofs + ch);
@@ -403,21 +426,23 @@ namespace mucomDotNET.Driver
 
         // **	ﾜﾘｺﾐ ﾉ ﾚﾍﾞﾙ ｿﾉﾀ ｼｮｷｾｯﾃｲ ｦ ｵｺﾅｳ**
 
-        private void INT57()
-        {
+        private void INT57() {
 
             //割り込み系の設定は不要
 
             TO_NML();
-            MONO();
+
+            for (int i = 0; i < work.MaxSoundWork; i++) {
+                work.SetChipWork(i);
+                MONO();
+            }
             AKYOFF();// ALL KEY OFF
             SSGOFF();
 
             ChipDatum dat = new ChipDatum(0, 0x29, 0x83);// CH 4-6 ENABLE
             WriteOPNASimultaneousOutput(dat);
 
-            for (int b = 0; b < 6; b++)
-            {
+            for (int b = 0; b < 6; b++) {
                 dat = new ChipDatum(0, (byte)b, 0x00);// CH 4-6 ENABLE
                 WriteOPNASimultaneousOutput(dat);
             }
@@ -425,12 +450,19 @@ namespace mucomDotNET.Driver
             dat = new ChipDatum(0, 7, 0b0011_1000);
             WriteOPNASimultaneousOutput(dat);
 
+            for (int i = 0; i < work.MaxSoundWork; i++) {
+                work.SetChipWork(i);
+                PsgBufferInitialize();
+            }
+            work.SetChipWork(0);
+        }
+
+        private void PsgBufferInitialize() {
+
             // PSGﾊﾞｯﾌｧ ｲﾆｼｬﾗｲｽﾞ
-            for (int i = 0; i < work.soundWork.INITPM.Length; i++)
-            {
+            for (int i = 0; i < work.soundWork.INITPM.Length; i++) {
                 work.soundWork.PREGBF[i] = work.soundWork.INITPM[i];
             }
-
         }
 
         //private void TO_NML()
@@ -451,31 +483,29 @@ namespace mucomDotNET.Driver
             for (int b = 0; b < 3; b++)
             {
                 dat = new ChipDatum(0, (byte)(0xb4 + b), 0xc0);//fm 1-3
-                WriteOPNASimultaneousOutput(dat);
+                WriteOPNAOffsetOutput(dat);
             }
 
             for (int b = 0; b < 6; b++)
             {
                 dat = new ChipDatum(0, (byte)(0x18 + b), 0xc0);//rhythm
-                WriteOPNASimultaneousOutput(dat);
+                WriteOPNAOffsetOutput(dat);
             }
 
             work.soundWork.FMPORT = 4;
             for (int b = 0; b < 3; b++)
             {
                 dat = new ChipDatum(1, (byte)(0xb4 + b), 0xc0);//fm 4-6
-                WriteOPNASimultaneousOutput(dat);
+                WriteOPNAOffsetOutput(dat);
             }
 
             work.soundWork.FMPORT = 0;
             dat = new ChipDatum(0, 0x22, 0x00);//lfo freq control
-            WriteOPNASimultaneousOutput(dat);
+            WriteOPNAOffsetOutput(dat);
             dat = new ChipDatum(0, 0x12, 0x00);//rhythm test data
-            WriteOPNASimultaneousOutput(dat);
+            WriteOPNAOffsetOutput(dat);
 
-
-            for (int b = 0; b < 7; b++)
-            {
+            for (int b = 0; b < 7; b++) {
                 work.soundWork.PALDAT[b] = 0xc0;
             }
 
@@ -529,12 +559,16 @@ namespace mucomDotNET.Driver
             DRIVE();
             //FDOUT();
 
+
             int n = 0;
-            for(int i = 0; i < MaxDriverChannel; i++)
-            {
-                if (work.soundWork.CHDAT[i].musicEnd) n++;
+            for (int ci=0; ci < work.MaxSoundWork; ci++) {
+                work.SetChipWork(ci);
+                for (int i = 0; i < MaxChipChannel; i++) {
+                    if (work.soundWork.CHDAT[i].musicEnd) n++;
+                }
             }
-            if (n == MaxDriverChannel) work.Status = 0;
+            if (n == work.MaxSoundWork * MaxChipChannel) work.Status = 0;
+
         }
 
         // **	CALL FM		**
@@ -544,12 +578,14 @@ namespace mucomDotNET.Driver
         public void DRIVE() {
             int n = 0;
 
-            work.soundWork.PORTOFS = 0;
+            work.SetChipWork(0);
+            work.soundWork.PORT_OFS = 0;
             n = DriveOffset(0, n);
 
             if (trackExtend) {
-                work.soundWork.PORTOFS = 2;
-                n = DriveOffset(11, n);
+                work.SetChipWork(1);
+                work.soundWork.PORT_OFS = 2;
+                n = DriveOffset(0, n);
             }
 
             if (work.maxLoopCount == -1) n = 0;
@@ -746,7 +782,7 @@ namespace mucomDotNET.Driver
                 }
             }
 
-            ChipDatum dat = new ChipDatum(work.soundWork.PORTOFS + port, d, e, 0, work.crntMmlDatum);
+            ChipDatum dat = new ChipDatum(work.soundWork.PORT_OFS + port, d, e, 0, work.crntMmlDatum);
             WriteOPNARegister(dat);
         }
 
@@ -793,7 +829,7 @@ namespace mucomDotNET.Driver
 
         public void PCMOUT(byte d, byte e)
         {
-            ChipDatum dat = new ChipDatum(work.soundWork.PORTOFS + 1, d, e, 0, work.crntMmlDatum);
+            ChipDatum dat = new ChipDatum(work.soundWork.PORT_OFS + 1, d, e, 0, work.crntMmlDatum);
             WriteOPNARegister(dat);
         }
 

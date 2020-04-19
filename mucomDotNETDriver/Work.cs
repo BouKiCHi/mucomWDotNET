@@ -39,15 +39,24 @@ namespace mucomDotNET.Driver
         public byte[] fmVoiceAtMusData = null;
         public bool isDotNET = false;
 
+        public SoundWork[] soundWorkData;
+
         public Work()
         {
             Init();
         }
 
+        public int MaxSoundWork = 2;
+
         internal void Init()
         {
-            soundWork = new SoundWork();
-            soundWork.Init();
+            soundWorkData = new SoundWork[] { new SoundWork(), new SoundWork() };
+            for(int i=0; i < MaxSoundWork; i++) { soundWorkData[i].Init(); }
+            soundWork = soundWorkData[0];
+        }
+
+        public void SetChipWork(int index) {
+            soundWork = soundWorkData[index];
         }
     }
 }
