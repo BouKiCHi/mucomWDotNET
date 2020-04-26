@@ -322,19 +322,25 @@ namespace mucomDotNET.Compiler
                 work.compilerInfo.loopCount = new List<int>();
                 work.compilerInfo.bufferCount = new List<int>();
 
-                for (int i = 0; i < muc88.GetMaxChannel(); i++)
+                for (int i = 0; i < CommonData.MAX_WORK_CHANNEL; i++)
                 {
+                    if (i % CommonData.MAX_CHIP_CH == 0) {
+                        strTcount += "\n";
+                        strLcount += "\n";
+                        strBcount += "\n";
+                    }
                     if (work.lcnt[i] != 0) { work.lcnt[i] = work.tcnt[i] - (work.lcnt[i] - 1); }
                     if (work.tcnt[i] > maxcount) maxcount = work.tcnt[i];
-                    strTcount += string.Format("{0}:{1} ", (char)('A' + i), work.tcnt[i]);
+                    var TrackChar = work.GetTrackCharacter(i);
+                    strTcount += string.Format("{0}:{1,-6} ", TrackChar, work.tcnt[i]);
                     work.compilerInfo.totalCount.Add(work.tcnt[i]);
-                    strLcount += string.Format("{0}:{1} ", (char)('A' + i), work.lcnt[i]);
+                    strLcount += string.Format("{0}:{1,-6} ", TrackChar, work.lcnt[i]);
                     work.compilerInfo.loopCount.Add(work.lcnt[i]);
-                    strBcount += string.Format("{0}:{1:x04} ", (char)('A' + i), work.bufCount[i]);
+                    strBcount += string.Format("{0}:{1:x04} ", TrackChar, work.bufCount[i]);
                     work.compilerInfo.bufferCount.Add(work.bufCount[i]);
                     if (work.bufCount[i] > 0xffff)
                     {
-                        throw new MucException(string.Format(Common.msg.get("E0700"), (char)('A' + i), work.bufCount[i]));
+                        throw new MucException(string.Format(Common.msg.get("E0700"), TrackChar, work.bufCount[i]));
                     }
                 }
 

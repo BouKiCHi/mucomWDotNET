@@ -24,7 +24,7 @@ namespace mucomDotNET.Compiler
         /// 最大チャンネル数
         /// </summary>
         public int GetMaxChannel() {
-            return trackExtend ? 22 : 11;
+            return CommonData.MAX_WORK_CHANNEL;
         }
 
         public Muc88(work work, MUCInfo mucInfo, iEncoding enc, bool extend) : this(work, mucInfo, enc) {
@@ -2000,7 +2000,7 @@ namespace mucomDotNET.Compiler
             if (ch < 0 || (ch >= 3 && ch < 7) || ch >= 10)
             {
                 throw new MucException(
-                    string.Format(msg.get("E0467"), (char)('A' + ch))
+                    string.Format(msg.get("E0467"), work.GetTrackCharacter(work.COMNOW))
                     , mucInfo.row, mucInfo.col);
             }
             if (ch > 6) ch -= 7;
@@ -2942,7 +2942,7 @@ namespace mucomDotNET.Compiler
             {
                 return COMPI3();
             }
-            for (int i = 0; i < work.MAX_WORK_CHANNEL; i++)
+            for (int i = 0; i < CommonData.MAX_WORK_CHANNEL; i++)
             {
                 work.tcnt[i] = 0;
                 work.lcnt[i] = 0;
@@ -3040,7 +3040,8 @@ namespace mucomDotNET.Compiler
                     continue;
                 }
 
-                if (c < 'A' || c > ('A' + GetMaxChannel()))
+
+                if (work.IsNotTrackCharacter(c))
                 {
                     //goto RECOM
                     continue;
@@ -3056,7 +3057,8 @@ namespace mucomDotNET.Compiler
                     continue;
                 }
 
-                if ((ch - 'A') != work.COMNOW)
+                // 現在コンパイル中のトラックかどうか
+                if (work.GetTrackNo(ch) != work.COMNOW)
                 {
                     // ｹﾞﾝｻﾞｲ ｺﾝﾊﾟｲﾙﾁｭｳ ﾉ ﾁｬﾝﾈﾙ
                     // ﾃﾞﾅｹﾚ ﾊﾞ ﾂｷﾞﾉｷﾞｮｳ
@@ -3201,14 +3203,14 @@ namespace mucomDotNET.Compiler
             mucInfo.bufDst.Set(work.MDATA++, new MmlDatum(0));   // SET END MARK = 0
 
             work.CHIP_CH++;
-            if (work.CHIP_CH >= work.MAX_CHIP_CH) work.CHIP_CH -= work.MAX_CHIP_CH;
+            if (work.CHIP_CH >= CommonData.MAX_CHIP_CH) work.CHIP_CH -= CommonData.MAX_CHIP_CH;
             work.COMNOW++;	// Ch.=Ch.+ 1
 
             //↓TBLSET();相当
             mucInfo.bufDst.Set(work.DATTBL + 4 * work.COMNOW + 0, new MmlDatum((byte)(work.MDATA - work.DATTBL + 1)));
             mucInfo.bufDst.Set(work.DATTBL + 4 * work.COMNOW + 1, new MmlDatum((byte)((work.MDATA - work.DATTBL + 1) >> 8)));
 
-            if (work.COMNOW == GetMaxChannel())
+            if (work.COMNOW == CommonData.MAX_WORK_CHANNEL)
             {
                 CMPEN1();
                 return;

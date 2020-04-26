@@ -144,12 +144,13 @@ namespace mucomDotNET.Compiler
                 {
                     goto READC;
                 }
-
+                // 16進数と思われる
                 if (ch >= 'a' && ch <= 'f')
                 {
                     ch -= (char)32;
                 }
-            //READG:
+                //READG:
+                // 16進数と思われる
                 if (ch >= 'A' && ch <= 'F')
                 {
                     ch -= (char)7;

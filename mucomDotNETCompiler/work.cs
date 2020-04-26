@@ -2,20 +2,13 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using mucomDotNET.Common;
 
 namespace mucomDotNET.Compiler
 {
     public class work
     {
-        /// <summary>
-        /// コンパイラとしての最大トラック数
-        /// </summary>
-        public const int MAX_WORK_CHANNEL = 22;
-
-        /// <summary>
-        /// チップの最大チャンネル数
-        /// </summary>
-        public const int MAX_CHIP_CH = 11;
+        
 
         //使用しない！
         //public const int T_CLK = 0x8C10;
@@ -31,8 +24,8 @@ namespace mucomDotNET.Compiler
         //
         public int FMLIB = 0;// 0x6000 w
 
-        public int[] tcnt = new int[MAX_WORK_CHANNEL];// MAXCH]; //0x8c10 w
-        public int[] lcnt = new int[MAX_WORK_CHANNEL];// MAXCH]; //0x8c12 w
+        public int[] tcnt = new int[CommonData.MAX_WORK_CHANNEL];// MAXCH]; //0x8c10 w
+        public int[] lcnt = new int[CommonData.MAX_WORK_CHANNEL];// MAXCH]; //0x8c12 w
                 
         public int pcmFlag = 0;//0x8c10+10*4 w
 
@@ -96,7 +89,7 @@ namespace mucomDotNET.Compiler
         public  int PSGMD { get; internal set; }
         public  int KEYONR { get; internal set; }
         public  int bufStartPtr { get; internal set; }
-        public  int[] bufCount { get; internal set; } = new int[MAX_WORK_CHANNEL];
+        public  int[] bufCount { get; internal set; } = new int[CommonData.MAX_WORK_CHANNEL];
         public  int JPCOL { get; internal set; }
         public  List<int> JCHCOM { get; internal set; }
 
@@ -110,8 +103,28 @@ namespace mucomDotNET.Compiler
 
         /// <summary>
         /// 各チップの割当チャンネル
+        /// 曲全体のトラックはCOMNOWを参照
         /// </summary>
-        public  int CHIP_CH = 0;
+        public int CHIP_CH = 0;
 
+        // 各チップのトラック
+        // ABCDEFGHIJK
+        // LMNOPQRSTUV
+        // WXYZabcdefg
+        // hijklmnopqr
+
+        public string Tracks = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqr";
+
+        public int GetTrackNo(char ch) {
+            return Tracks.IndexOf(ch);
+        }
+
+        public char GetTrackCharacter(int num) {
+            return Tracks[num];
+        }
+
+        public bool IsNotTrackCharacter(char c) {
+            return Tracks.IndexOf(c) < 0;
+        }
     }
 }

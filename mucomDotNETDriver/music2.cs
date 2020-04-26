@@ -23,15 +23,15 @@ namespace mucomDotNET.Driver
         private byte[] autoPantable = new byte[] { 2, 3, 1, 3 };
 
         private void WriteOPNASimultaneousOutput(ChipDatum dat) {
-            var d1 = new ChipDatum(dat.port & 0x01, dat.address, dat.data, dat.time, dat.addtionalData);
-            WriteOPNARegister(d1);
-
-            var d2 = new ChipDatum(0x02 + (dat.port & 0x01), dat.address, dat.data, dat.time, dat.addtionalData);
-            WriteOPNARegister(d2);
+            for(var c = 0; c < CommonData.MAX_CHIP; c++) {
+                var portofs = 0x02 * c;
+                var d1 = new ChipDatum(portofs + (dat.port & 0x01), dat.address, dat.data, dat.time, dat.addtionalData);
+                WriteOPNARegister(d1);
+            }
         }
 
         private void WriteOPNAOffsetOutput(ChipDatum dat) {
-            var d1 = new ChipDatum(work.soundWork.PORT_OFS + (dat.port & 0x01), dat.address, dat.data, dat.time, dat.addtionalData);
+            var d1 = new ChipDatum(work.CurrentSoundWork.PORT_OFS + (dat.port & 0x01), dat.address, dat.data, dat.time, dat.addtionalData);
             WriteOPNARegister(d1);
         }
 
@@ -54,7 +54,7 @@ namespace mucomDotNET.Driver
 
         public Music2(Work work, Action<ChipDatum> WriteOPNARegister, bool extend) : this(work, WriteOPNARegister) {
             trackExtend = extend;
-            MaxDriverChannel = trackExtend ? 22 : 11;
+            MaxDriverChannel = CommonData.MAX_WORK_CHANNEL;
         }
         public Music2(Work work, Action<ChipDatum> WriteOPNARegister)
         {
@@ -70,7 +70,7 @@ namespace mucomDotNET.Driver
             lock (work.SystemInterrupt)
             {
 
-                work.soundWork.MUSNUM = musicNumber;
+                work.CurrentSoundWork.MUSNUM = musicNumber;
                 AKYOFF();
                 SSGOFF();
                 WORKINIT();
@@ -152,7 +152,7 @@ namespace mucomDotNET.Driver
             lock (work.SystemInterrupt)
             {
                 //work.SystemInterrupt = true;
-                for (int i = 0; i < work.soundWork.CHDAT.Length; i++) work.soundWork.CHDAT[i].muteFlg = true;
+                for (int i = 0; i < work.CurrentSoundWork.CHDAT.Length; i++) work.CurrentSoundWork.CHDAT[i].muteFlg = true;
 
                 while (count > 0)
                 {
@@ -160,7 +160,7 @@ namespace mucomDotNET.Driver
                     count--;
                 }
 
-                for (int i = 0; i < work.soundWork.CHDAT.Length; i++) work.soundWork.CHDAT[i].muteFlg = false;
+                for (int i = 0; i < work.CurrentSoundWork.CHDAT.Length; i++) work.CurrentSoundWork.CHDAT[i].muteFlg = false;
                 //work.SystemInterrupt = false;
             }
         }
@@ -286,32 +286,32 @@ namespace mucomDotNET.Driver
         // **   VOLUME OR FADEOUT etc RESET**
 
         public void WORKINIT() {
-            for(int i = 0; i < work.MaxSoundWork; i++) {
+            for(int i = 0; i < work.MaxChip; i++) {
                 work.SetChipWork(i);
                 WorkCommonInit();
             }
 
             work.SetChipWork(0);
-            int num = work.soundWork.MUSNUM;
-            work.mDataAdr = work.soundWork.MU_TOP;
+            int num = work.CurrentSoundWork.MUSNUM;
+            work.mDataAdr = work.CurrentSoundWork.MU_TOP;
 
             // 曲数分スキップ
             for (int i = 0; i < num; i++) {
                 work.mDataAdr += 1 + (uint)MaxDriverChannel * 4;
-                work.mDataAdr = work.soundWork.MU_TOP + Cmn.getLE16(work.mData, (uint)work.mDataAdr);
+                work.mDataAdr = work.CurrentSoundWork.MU_TOP + Cmn.getLE16(work.mData, (uint)work.mDataAdr);
             }
 
-            work.soundWork.TIMER_B = (work.mData[work.mDataAdr] != null) ? ((byte)work.mData[work.mDataAdr].dat) : (byte)200;
-            work.soundWork.TB_TOP = ++work.mDataAdr;
+            work.CurrentSoundWork.TIMER_B = (work.mData[work.mDataAdr] != null) ? ((byte)work.mData[work.mDataAdr].dat) : (byte)200;
+            work.CurrentSoundWork.TB_TOP = ++work.mDataAdr;
 
-            var TableAddress = work.soundWork.TB_TOP;
-            for(int i=0; i< work.MaxSoundWork; i++) {
+            var TableAddress = work.CurrentSoundWork.TB_TOP;
+            for(int i=0; i< work.MaxChip; i++) {
                 work.SetChipWork(i);
-                work.soundWork.C2NUM = 0;
-                work.soundWork.CHNUM = 0;
-                work.soundWork.TB_TOP = TableAddress;
+                work.CurrentSoundWork.C2NUM = 0;
+                work.CurrentSoundWork.CHNUM = 0;
+                work.CurrentSoundWork.TB_TOP = TableAddress;
                 InitWork(0);
-                TableAddress = work.soundWork.TB_TOP;
+                TableAddress = work.CurrentSoundWork.TB_TOP;
             }
 
             work.fmVoiceAtMusData = GetVoiceDataAtMusData();
@@ -320,15 +320,15 @@ namespace mucomDotNET.Driver
         }
 
         private void WorkCommonInit() {
-            work.soundWork.C2NUM = 0;
-            work.soundWork.CHNUM = 0;
+            work.CurrentSoundWork.C2NUM = 0;
+            work.CurrentSoundWork.CHNUM = 0;
 
-            work.soundWork.KEY_FLAG = 0;
-            work.soundWork.RANDUM = (ushort)System.DateTime.Now.Ticks;
+            work.CurrentSoundWork.KEY_FLAG = 0;
+            work.CurrentSoundWork.RANDUM = (ushort)System.DateTime.Now.Ticks;
         }
 
         private int InitWork(int ofs) {
-            work.soundWork.PVMODE = 0;
+            work.CurrentSoundWork.PVMODE = 0;
 
             int ch = 0;
             for (ch = 0; ch < 6; ch++) {
@@ -336,11 +336,11 @@ namespace mucomDotNET.Driver
                 //ch++;//オリジナルは　ix+=WKLENG だが、配列化しているので。
             }
 
-            work.soundWork.CHNUM = 0;
+            work.CurrentSoundWork.CHNUM = 0;
             ch = 6;//DRAMDAT
             FMINIT(ofs + ch);
 
-            work.soundWork.CHNUM = 0;
+            work.CurrentSoundWork.CHNUM = 0;
             //ix = 7;//CHADAT
             for (ch = 7; ch < 7 + 4; ch++) {
                 FMINIT(ofs + ch);
@@ -365,26 +365,26 @@ namespace mucomDotNET.Driver
 
         private void FMINIT(int ch)
         {
-            work.soundWork.CHDAT[ch] = new CHDAT();
-            work.soundWork.CHDAT[ch].lengthCounter = 1;
-            work.soundWork.CHDAT[ch].volume = 0;
-            work.soundWork.CHDAT[ch].musicEnd = false;
+            work.CurrentSoundWork.CHDAT[ch] = new CHDAT();
+            work.CurrentSoundWork.CHDAT[ch].lengthCounter = 1;
+            work.CurrentSoundWork.CHDAT[ch].volume = 0;
+            work.CurrentSoundWork.CHDAT[ch].musicEnd = false;
 
             // ---	POINTER ﾉ ｻｲｾｯﾃｲ	---
-            uint stPtr =  Cmn.getLE16(work.mData, work.soundWork.TB_TOP);
-            int lpPtr = (int)Cmn.getLE16(work.mData, work.soundWork.TB_TOP + 2);
+            uint stPtr =  Cmn.getLE16(work.mData, work.CurrentSoundWork.TB_TOP);
+            int lpPtr = (int)Cmn.getLE16(work.mData, work.CurrentSoundWork.TB_TOP + 2);
             if (lpPtr == 0) lpPtr = -1;
 
             //次のチャンネル
-            int nCPtr= (int)Cmn.getLE16(work.mData, work.soundWork.TB_TOP + 4);
+            int nCPtr= (int)Cmn.getLE16(work.mData, work.CurrentSoundWork.TB_TOP + 4);
 
             List<MmlDatum> bf = new List<MmlDatum>();
             int length = (int)(nCPtr - stPtr + (nCPtr < stPtr ? 0x10000 : 0));
             for (int i = 0; i < length; i++)
             {
-                bf.Add(work.mData[work.soundWork.MU_TOP + work.weight + stPtr + i]);
+                bf.Add(work.mData[work.CurrentSoundWork.MU_TOP + work.weight + stPtr + i]);
             }
-            work.soundWork.CHDAT[ch].mData = bf.ToArray();
+            work.CurrentSoundWork.CHDAT[ch].mData = bf.ToArray();
 
             if (nCPtr < stPtr)
             {
@@ -395,24 +395,24 @@ namespace mucomDotNET.Driver
             //    = (uint)(work.soundWork.MU_TOP + stPtr + work.weight);//ix 2,3
             //work.soundWork.CHDAT[ch].dataTopAddress
             //    = (uint)(lpPtr != 0 ? (work.soundWork.MU_TOP + lpPtr + work.weight) : 0);//ix 4,5
-            work.soundWork.CHDAT[ch].dataAddressWork
+            work.CurrentSoundWork.CHDAT[ch].dataAddressWork
                 = (uint)0;//ix 2,3
-            work.soundWork.CHDAT[ch].dataTopAddress
+            work.CurrentSoundWork.CHDAT[ch].dataTopAddress
                 = (int)(lpPtr != -1 ? (lpPtr - stPtr) : -1);//ix 4,5
 
 
-            work.soundWork.C2NUM++;
-            work.soundWork.TB_TOP += 4;
-            if (work.soundWork.CHNUM > 2)
+            work.CurrentSoundWork.C2NUM++;
+            work.CurrentSoundWork.TB_TOP += 4;
+            if (work.CurrentSoundWork.CHNUM > 2)
             {
                 // ---   FOR SSG   ---
-                work.soundWork.CHDAT[ch].volReg = work.soundWork.CHNUM + 5;//ix 7
-                work.soundWork.CHDAT[ch].channelNumber = (work.soundWork.CHNUM - 3) * 2;//ix 8
-                work.soundWork.CHNUM++;
+                work.CurrentSoundWork.CHDAT[ch].volReg = work.CurrentSoundWork.CHNUM + 5;//ix 7
+                work.CurrentSoundWork.CHDAT[ch].channelNumber = (work.CurrentSoundWork.CHNUM - 3) * 2;//ix 8
+                work.CurrentSoundWork.CHNUM++;
                 return;
             }
-            work.soundWork.CHDAT[ch].channelNumber = work.soundWork.CHNUM;//ix 8
-            work.soundWork.CHNUM++;
+            work.CurrentSoundWork.CHDAT[ch].channelNumber = work.CurrentSoundWork.CHNUM;//ix 8
+            work.CurrentSoundWork.CHNUM++;
         }
 
         /// <summary>
@@ -421,7 +421,7 @@ namespace mucomDotNET.Driver
         /// </summary>
         private void CHK()
         {
-            work.soundWork.NOTSB2 = notSoundBoard2 ? 1 : 0;
+            work.CurrentSoundWork.NOTSB2 = notSoundBoard2 ? 1 : 0;
         }
 
         // **	ﾜﾘｺﾐ ﾉ ﾚﾍﾞﾙ ｿﾉﾀ ｼｮｷｾｯﾃｲ ｦ ｵｺﾅｳ**
@@ -432,7 +432,7 @@ namespace mucomDotNET.Driver
 
             TO_NML();
 
-            for (int i = 0; i < work.MaxSoundWork; i++) {
+            for (int i = 0; i < work.MaxChip; i++) {
                 work.SetChipWork(i);
                 MONO();
             }
@@ -450,7 +450,7 @@ namespace mucomDotNET.Driver
             dat = new ChipDatum(0, 7, 0b0011_1000);
             WriteOPNASimultaneousOutput(dat);
 
-            for (int i = 0; i < work.MaxSoundWork; i++) {
+            for (int i = 0; i < work.MaxChip; i++) {
                 work.SetChipWork(i);
                 PsgBufferInitialize();
             }
@@ -460,8 +460,8 @@ namespace mucomDotNET.Driver
         private void PsgBufferInitialize() {
 
             // PSGﾊﾞｯﾌｧ ｲﾆｼｬﾗｲｽﾞ
-            for (int i = 0; i < work.soundWork.INITPM.Length; i++) {
-                work.soundWork.PREGBF[i] = work.soundWork.INITPM[i];
+            for (int i = 0; i < work.CurrentSoundWork.INITPM.Length; i++) {
+                work.CurrentSoundWork.PREGBF[i] = work.CurrentSoundWork.INITPM[i];
             }
         }
 
@@ -479,7 +479,7 @@ namespace mucomDotNET.Driver
         private void MONO()
         {
             ChipDatum dat;
-            work.soundWork.FMPORT = 0;
+            work.CurrentSoundWork.FMPORT = 0;
             for (int b = 0; b < 3; b++)
             {
                 dat = new ChipDatum(0, (byte)(0xb4 + b), 0xc0);//fm 1-3
@@ -492,31 +492,31 @@ namespace mucomDotNET.Driver
                 WriteOPNAOffsetOutput(dat);
             }
 
-            work.soundWork.FMPORT = 4;
+            work.CurrentSoundWork.FMPORT = 4;
             for (int b = 0; b < 3; b++)
             {
                 dat = new ChipDatum(1, (byte)(0xb4 + b), 0xc0);//fm 4-6
                 WriteOPNAOffsetOutput(dat);
             }
 
-            work.soundWork.FMPORT = 0;
+            work.CurrentSoundWork.FMPORT = 0;
             dat = new ChipDatum(0, 0x22, 0x00);//lfo freq control
             WriteOPNAOffsetOutput(dat);
             dat = new ChipDatum(0, 0x12, 0x00);//rhythm test data
             WriteOPNAOffsetOutput(dat);
 
             for (int b = 0; b < 7; b++) {
-                work.soundWork.PALDAT[b] = 0xc0;
+                work.CurrentSoundWork.PALDAT[b] = 0xc0;
             }
 
-            work.soundWork.PCMLR = 3;
+            work.CurrentSoundWork.PCMLR = 3;
         }
 
         // **	ﾐｭｰｼﾞｯｸ ﾜﾘｺﾐ ENABLE**
 
         public void ENBL()
         {
-            STTMB(work.soundWork.TIMER_B);// SET Timer-B
+            STTMB(work.CurrentSoundWork.TIMER_B);// SET Timer-B
 
             //割り込みベクタリセット不要
             //Z80.A = M_VECTR;
@@ -551,9 +551,9 @@ namespace mucomDotNET.Driver
         public void PL_SND()
         {
 
-            ChipDatum dat = new ChipDatum(0, 0x27, work.soundWork.PLSET1_VAL);//  TIMER-OFF DATA
+            ChipDatum dat = new ChipDatum(0, 0x27, work.CurrentSoundWork.PLSET1_VAL);//  TIMER-OFF DATA
             WriteOPNASimultaneousOutput(dat);
-            dat = new ChipDatum(0, 0x27, work.soundWork.PLSET2_VAL);//  TIMER-ON DATA
+            dat = new ChipDatum(0, 0x27, work.CurrentSoundWork.PLSET2_VAL);//  TIMER-ON DATA
             WriteOPNARegister(dat);
 
             DRIVE();
@@ -561,13 +561,13 @@ namespace mucomDotNET.Driver
 
 
             int n = 0;
-            for (int ci=0; ci < work.MaxSoundWork; ci++) {
+            for (int ci=0; ci < work.MaxChip; ci++) {
                 work.SetChipWork(ci);
                 for (int i = 0; i < MaxChipChannel; i++) {
-                    if (work.soundWork.CHDAT[i].musicEnd) n++;
+                    if (work.CurrentSoundWork.CHDAT[i].musicEnd) n++;
                 }
             }
-            if (n == work.MaxSoundWork * MaxChipChannel) work.Status = 0;
+            if (n == work.MaxChip * MaxChipChannel) work.Status = 0;
 
         }
 
@@ -578,13 +578,9 @@ namespace mucomDotNET.Driver
         public void DRIVE() {
             int n = 0;
 
-            work.SetChipWork(0);
-            work.soundWork.PORT_OFS = 0;
-            n = DriveOffset(0, n);
-
-            if (trackExtend) {
-                work.SetChipWork(1);
-                work.soundWork.PORT_OFS = 2;
+            for(var ci = 0; ci < CommonData.MAX_CHIP; ci++) {
+                work.SetChipWork(ci);
+                work.CurrentSoundWork.PORT_OFS = ci * 2;
                 n = DriveOffset(0, n);
             }
 
@@ -595,125 +591,125 @@ namespace mucomDotNET.Driver
 
         private int DriveOffset(int ofs, int n) {
 
-            work.soundWork.FMPORT = 0;
+            work.CurrentSoundWork.FMPORT = 0;
 
             //Log.WriteLine(LogLevel.TRACE, string.Format("----- -----{0}", loopC++));
             Log.WriteLine(LogLevel.TRACE, "----- FM 1");
             FMENT(ofs + 0);
-            if ((work.soundWork.CHDAT[ofs + 0].dataTopAddress == -1 && work.soundWork.CHDAT[ofs + 0].loopEndFlg)
-                || work.soundWork.CHDAT[ofs + 0].loopCounter >= work.maxLoopCount)
+            if ((work.CurrentSoundWork.CHDAT[ofs + 0].dataTopAddress == -1 && work.CurrentSoundWork.CHDAT[ofs + 0].loopEndFlg)
+                || work.CurrentSoundWork.CHDAT[ofs + 0].loopCounter >= work.maxLoopCount)
                 n++;
 
             Log.WriteLine(LogLevel.TRACE, "----- FM 2");
             FMENT(ofs + 1);
-            if ((work.soundWork.CHDAT[ofs + 1].dataTopAddress == -1 && work.soundWork.CHDAT[ofs + 1].loopEndFlg)
-                || work.soundWork.CHDAT[ofs + 1].loopCounter >= work.maxLoopCount)
+            if ((work.CurrentSoundWork.CHDAT[ofs + 1].dataTopAddress == -1 && work.CurrentSoundWork.CHDAT[ofs + 1].loopEndFlg)
+                || work.CurrentSoundWork.CHDAT[ofs + 1].loopCounter >= work.maxLoopCount)
                 n++;
 
             Log.WriteLine(LogLevel.TRACE, "----- FM 3");
             FMENT(ofs + 2);
-            if ((work.soundWork.CHDAT[ofs + 2].dataTopAddress == -1 && work.soundWork.CHDAT[ofs + 2].loopEndFlg)
-                || work.soundWork.CHDAT[ofs + 2].loopCounter >= work.maxLoopCount)
+            if ((work.CurrentSoundWork.CHDAT[ofs + 2].dataTopAddress == -1 && work.CurrentSoundWork.CHDAT[ofs + 2].loopEndFlg)
+                || work.CurrentSoundWork.CHDAT[ofs + 2].loopCounter >= work.maxLoopCount)
                 n++;
 
 
-            work.soundWork.SSGF1 = 0xff;
+            work.CurrentSoundWork.SSGF1 = 0xff;
             Log.WriteLine(LogLevel.TRACE, "----- SSG1");
             SSGENT(ofs + 3);
-            if ((work.soundWork.CHDAT[ofs + 3].dataTopAddress == -1 && work.soundWork.CHDAT[ofs + 3].loopEndFlg)
-                || work.soundWork.CHDAT[ofs + 3].loopCounter >= work.maxLoopCount)
+            if ((work.CurrentSoundWork.CHDAT[ofs + 3].dataTopAddress == -1 && work.CurrentSoundWork.CHDAT[ofs + 3].loopEndFlg)
+                || work.CurrentSoundWork.CHDAT[ofs + 3].loopCounter >= work.maxLoopCount)
                 n++;
 
             Log.WriteLine(LogLevel.TRACE, "----- SSG2");
             SSGENT(ofs + 4);
-            if ((work.soundWork.CHDAT[ofs + 4].dataTopAddress == -1 && work.soundWork.CHDAT[ofs + 4].loopEndFlg)
-                || work.soundWork.CHDAT[ofs + 4].loopCounter >= work.maxLoopCount)
+            if ((work.CurrentSoundWork.CHDAT[ofs + 4].dataTopAddress == -1 && work.CurrentSoundWork.CHDAT[ofs + 4].loopEndFlg)
+                || work.CurrentSoundWork.CHDAT[ofs + 4].loopCounter >= work.maxLoopCount)
                 n++;
 
             Log.WriteLine(LogLevel.TRACE, "----- SSG3");
             SSGENT(ofs + 5);
-            if ((work.soundWork.CHDAT[ofs + 5].dataTopAddress == -1 && work.soundWork.CHDAT[ofs + 5].loopEndFlg)
-                || work.soundWork.CHDAT[ofs + 5].loopCounter >= work.maxLoopCount)
+            if ((work.CurrentSoundWork.CHDAT[ofs + 5].dataTopAddress == -1 && work.CurrentSoundWork.CHDAT[ofs + 5].loopEndFlg)
+                || work.CurrentSoundWork.CHDAT[ofs + 5].loopCounter >= work.maxLoopCount)
                 n++;
 
-            work.soundWork.SSGF1 = 0;
+            work.CurrentSoundWork.SSGF1 = 0;
 
 
             if (notSoundBoard2) return n;
 
-            work.soundWork.DRMF1 = 1;
+            work.CurrentSoundWork.DRMF1 = 1;
             Log.WriteLine(LogLevel.TRACE, "----- Ryhthm");
             FMENT(ofs + 6);
-            if ((work.soundWork.CHDAT[ofs + 6].dataTopAddress == -1 && work.soundWork.CHDAT[ofs + 6].loopEndFlg)
-                || work.soundWork.CHDAT[ofs + 6].loopCounter >= work.maxLoopCount)
+            if ((work.CurrentSoundWork.CHDAT[ofs + 6].dataTopAddress == -1 && work.CurrentSoundWork.CHDAT[ofs + 6].loopEndFlg)
+                || work.CurrentSoundWork.CHDAT[ofs + 6].loopCounter >= work.maxLoopCount)
                 n++;
 
-            work.soundWork.DRMF1 = 0;
+            work.CurrentSoundWork.DRMF1 = 0;
 
-            work.soundWork.FMPORT = 4;
+            work.CurrentSoundWork.FMPORT = 4;
             Log.WriteLine(LogLevel.TRACE, "----- FM 4");
             FMENT(ofs + 7);
-            if ((work.soundWork.CHDAT[ofs + 7].dataTopAddress == -1 && work.soundWork.CHDAT[ofs + 7].loopEndFlg)
-                || work.soundWork.CHDAT[ofs + 7].loopCounter >= work.maxLoopCount)
+            if ((work.CurrentSoundWork.CHDAT[ofs + 7].dataTopAddress == -1 && work.CurrentSoundWork.CHDAT[ofs + 7].loopEndFlg)
+                || work.CurrentSoundWork.CHDAT[ofs + 7].loopCounter >= work.maxLoopCount)
                 n++;
 
             Log.WriteLine(LogLevel.TRACE, "----- FM 5");
             FMENT(ofs + 8);
-            if ((work.soundWork.CHDAT[ofs + 8].dataTopAddress == -1 && work.soundWork.CHDAT[ofs + 8].loopEndFlg)
-                || work.soundWork.CHDAT[ofs + 8].loopCounter >= work.maxLoopCount)
+            if ((work.CurrentSoundWork.CHDAT[ofs + 8].dataTopAddress == -1 && work.CurrentSoundWork.CHDAT[ofs + 8].loopEndFlg)
+                || work.CurrentSoundWork.CHDAT[ofs + 8].loopCounter >= work.maxLoopCount)
                 n++;
 
             Log.WriteLine(LogLevel.TRACE, "----- FM 6");
             FMENT(ofs + 9);
-            if ((work.soundWork.CHDAT[ofs + 9].dataTopAddress == -1 && work.soundWork.CHDAT[ofs + 9].loopEndFlg)
-                || work.soundWork.CHDAT[ofs + 9].loopCounter >= work.maxLoopCount)
+            if ((work.CurrentSoundWork.CHDAT[ofs + 9].dataTopAddress == -1 && work.CurrentSoundWork.CHDAT[ofs + 9].loopEndFlg)
+                || work.CurrentSoundWork.CHDAT[ofs + 9].loopCounter >= work.maxLoopCount)
                 n++;
 
 
-            work.soundWork.PCMFLG = 0xff;
+            work.CurrentSoundWork.PCMFLG = 0xff;
             Log.WriteLine(LogLevel.TRACE, "----- ADPCM");
             FMENT(ofs + 10);
-            if ((work.soundWork.CHDAT[ofs + 10].dataTopAddress == -1 && work.soundWork.CHDAT[ofs + 10].loopEndFlg)
-                || work.soundWork.CHDAT[ofs + 10].loopCounter >= work.maxLoopCount)
+            if ((work.CurrentSoundWork.CHDAT[ofs + 10].dataTopAddress == -1 && work.CurrentSoundWork.CHDAT[ofs + 10].loopEndFlg)
+                || work.CurrentSoundWork.CHDAT[ofs + 10].loopCounter >= work.maxLoopCount)
                 n++;
 
-            work.soundWork.PCMFLG = 0;
+            work.CurrentSoundWork.PCMFLG = 0;
             return n;
         }
 
         public void FMENT(int ix)
         {
             work.idx = ix;
-            work.cd = work.soundWork.CHDAT[work.idx];
+            work.cd = work.CurrentSoundWork.CHDAT[work.idx];
 
             PANNING();//AMD98
             KeyOnDelaying();
 
-            if (work.soundWork.CHDAT[ix].muteFlg) //KUMA: 0x08(bit3)=MUTE FLAG
+            if (work.CurrentSoundWork.CHDAT[ix].muteFlg) //KUMA: 0x08(bit3)=MUTE FLAG
             {
-                work.soundWork.READY = 0x00;
+                work.CurrentSoundWork.READY = 0x00;
             }
             FMSUB();
             PLLFO();
-            if (work.soundWork.CHDAT[ix].muteFlg)//KUMA: 0x08(bit3)=MUTE FLAG
+            if (work.CurrentSoundWork.CHDAT[ix].muteFlg)//KUMA: 0x08(bit3)=MUTE FLAG
             {
-                work.soundWork.READY = 0xff;
+                work.CurrentSoundWork.READY = 0xff;
             }
         }
 
 
         public void SSGENT(int ix)
         {
-            if (work.soundWork.CHDAT[ix].muteFlg) //KUMA: 0x08(bit3)=MUTE FLAG
+            if (work.CurrentSoundWork.CHDAT[ix].muteFlg) //KUMA: 0x08(bit3)=MUTE FLAG
             {
-                work.soundWork.READY = 0x00;
+                work.CurrentSoundWork.READY = 0x00;
             }
             work.idx = ix;
             SSGSUB();
             PLLFO();
-            if (work.soundWork.CHDAT[ix].muteFlg)//KUMA: 0x08(bit3)=MUTE FLAG
+            if (work.CurrentSoundWork.CHDAT[ix].muteFlg)//KUMA: 0x08(bit3)=MUTE FLAG
             {
-                work.soundWork.READY = 0xff;
+                work.CurrentSoundWork.READY = 0xff;
             }
         }
 
@@ -758,12 +754,12 @@ namespace mucomDotNET.Driver
 
         public void STV2(byte c)
         {
-            byte e = work.soundWork.FMVDAT[c];// GET VOLUME DATA
+            byte e = work.CurrentSoundWork.FMVDAT[c];// GET VOLUME DATA
             byte d = (byte)(0x40 + work.cd.channelNumber);// GET PORT No.
 
             if (work.cd.algo >= 8) return;//KUMA: オリジナルはチェック無し
 
-            c = work.soundWork.CRYDAT[work.cd.algo];
+            c = work.CurrentSoundWork.CRYDAT[work.cd.algo];
 
             for (int b = 0; b < 4; b++)
             {
@@ -776,13 +772,13 @@ namespace mucomDotNET.Driver
             byte port = 0;
             if (d >= 0x30)
             {
-                if (work.soundWork.FMPORT != 0)
+                if (work.CurrentSoundWork.FMPORT != 0)
                 {
                     port = 1;
                 }
             }
 
-            ChipDatum dat = new ChipDatum(work.soundWork.PORT_OFS + port, d, e, 0, work.crntMmlDatum);
+            ChipDatum dat = new ChipDatum(work.CurrentSoundWork.PORT_OFS + port, d, e, 0, work.crntMmlDatum);
             WriteOPNARegister(dat);
         }
 
@@ -797,16 +793,16 @@ namespace mucomDotNET.Driver
 
         public void KEYOFF()
         {
-            if (work.soundWork.PCMFLG != 0)
+            if (work.CurrentSoundWork.PCMFLG != 0)
             {
                 PCMEND();
                 return;
             }
 
-            if (work.soundWork.DRMF1 != 0)
+            if (work.CurrentSoundWork.DRMF1 != 0)
             {
                 // --	ﾘｽﾞﾑ ｵﾝｹﾞﾝ ﾉ ｷｰｵﾌ	--
-                PSGOUT(0x10, (byte)((work.soundWork.RHYTHM & 0b0011_1111) | 0x80));// GET RETHM PARAMETER
+                PSGOUT(0x10, (byte)((work.CurrentSoundWork.RHYTHM & 0b0011_1111) | 0x80));// GET RETHM PARAMETER
                 return;
             }
 
@@ -814,7 +810,7 @@ namespace mucomDotNET.Driver
             work.cd.KDWork[1] = 0;
             work.cd.KDWork[2] = 0;
             work.cd.KDWork[3] = 0;
-            PSGOUT(0x28, (byte)(work.soundWork.FMPORT + work.cd.channelNumber));//  KEY-OFF
+            PSGOUT(0x28, (byte)(work.CurrentSoundWork.FMPORT + work.cd.channelNumber));//  KEY-OFF
 
         }
 
@@ -829,7 +825,7 @@ namespace mucomDotNET.Driver
 
         public void PCMOUT(byte d, byte e)
         {
-            ChipDatum dat = new ChipDatum(work.soundWork.PORT_OFS + 1, d, e, 0, work.crntMmlDatum);
+            ChipDatum dat = new ChipDatum(work.CurrentSoundWork.PORT_OFS + 1, d, e, 0, work.crntMmlDatum);
             WriteOPNARegister(dat);
         }
 
@@ -919,13 +915,13 @@ namespace mucomDotNET.Driver
                 KEYOFF();
             }
 
-            if (work.soundWork.PLSET1_VAL != 0x78)//効果音モードでは無い場合
+            if (work.CurrentSoundWork.PLSET1_VAL != 0x78)//効果音モードでは無い場合
             {
                 FMSUB4(hl);
                 return;
             }
 
-            if (work.soundWork.FMPORT != 0)
+            if (work.CurrentSoundWork.FMPORT != 0)
             {
                 FMSUB4(hl);
                 return;
@@ -947,7 +943,7 @@ namespace mucomDotNET.Driver
             work.cd.musicEnd = true;
             work.cd.dataAddressWork = hl;
 
-            if (work.soundWork.PCMFLG != 0)
+            if (work.CurrentSoundWork.PCMFLG != 0)
             {
                 PCMEND();
                 return;
@@ -971,10 +967,10 @@ namespace mucomDotNET.Driver
 
             work.cd.beforeCode = a;
 
-            if (work.soundWork.PCMFLG != 0)
+            if (work.CurrentSoundWork.PCMFLG != 0)
             {
                 //PCMGFQ:
-                hl = (uint)(work.soundWork.PCMNMB[a & 0b0000_1111] + work.cd.detune);
+                hl = (uint)(work.CurrentSoundWork.PCMNMB[a & 0b0000_1111] + work.cd.detune);
                 a >>= 4;
                 b = a;
                 //ASUB7:
@@ -984,7 +980,7 @@ namespace mucomDotNET.Driver
                     b--;
                 }
                 //ASUB72:
-                work.soundWork.DELT_N = hl;
+                work.CurrentSoundWork.DELT_N = hl;
                 if (!work.cd.keyoffflg)
                 {
                     LFORST();
@@ -994,10 +990,10 @@ namespace mucomDotNET.Driver
                 return;//戻り値がcarry
             }
 
-            if (work.soundWork.DRMF1 == 0)
+            if (work.CurrentSoundWork.DRMF1 == 0)
             {
                 //FMGFQ:
-                hl = work.soundWork.FNUMB[a & 0xf];// GET KEY CODE(C, C+, D...B)
+                hl = work.CurrentSoundWork.FNUMB[a & 0xf];// GET KEY CODE(C, C+, D...B)
                 hl |= (ushort)((a & 0x70) << 7);// GET BLOCK DATA
                                                 // A4-A6 ﾎﾟｰﾄ ｼｭﾂﾘｮｸﾖｳ ﾆ ｱﾜｾﾙ
                                                 // GET FNUM2
@@ -1010,7 +1006,7 @@ namespace mucomDotNET.Driver
                 {
                     work.cd.fnum = (int)hl;// FOR LFO
                                            // FOR LFO
-                    work.soundWork.FNUM = hl;
+                    work.CurrentSoundWork.FNUM = hl;
                 }
                 if (work.cd.keyoffflg)
                 {
@@ -1018,7 +1014,7 @@ namespace mucomDotNET.Driver
                 }
                 LFORST2();
                 //FMSUB8:
-                FMSUB6(hl, work.soundWork.FMSUB8_VAL);//戻り値がcarry
+                FMSUB6(hl, work.CurrentSoundWork.FMSUB8_VAL);//戻り値がcarry
                 return;
             }
 
@@ -1043,7 +1039,7 @@ namespace mucomDotNET.Driver
 
             byte e = (byte)(hl >> 8);// BLOCK/F-NUMBER2 DATA
                                      //FPORT:
-            byte d = work.soundWork.FPORT_VAL;// 0x0A4;// PORT A4H
+            byte d = work.CurrentSoundWork.FPORT_VAL;// 0x0A4;// PORT A4H
             d += (byte)work.cd.channelNumber;
             PSGOUT(d, e);
 
@@ -1095,11 +1091,11 @@ namespace mucomDotNET.Driver
 
         public void EXMODE(uint hl)
         {
-            work.soundWork.FMSUB8_VAL = (ushort)work.soundWork.DETDAT[0];
+            work.CurrentSoundWork.FMSUB8_VAL = (ushort)work.CurrentSoundWork.DETDAT[0];
             FMSUB4(hl);// SET OP1
             if (work.carry)
             {
-                work.soundWork.FMSUB8_VAL = 0;//忘れずに戻す
+                work.CurrentSoundWork.FMSUB8_VAL = 0;//忘れずに戻す
                 return;
             }
 
@@ -1108,15 +1104,15 @@ namespace mucomDotNET.Driver
                            //EXMLP:
             while (a != 0xad)//END PORT+1
             {
-                work.soundWork.FPORT_VAL = a;
+                work.CurrentSoundWork.FPORT_VAL = a;
                 a++;
                 //HLSTC0:
-                FMSUB6(work.soundWork.FNUM, (ushort)work.soundWork.DETDAT[hl++]);// SET OP2-OP4
+                FMSUB6(work.CurrentSoundWork.FNUM, (ushort)work.CurrentSoundWork.DETDAT[hl++]);// SET OP2-OP4
             }
 
-            work.soundWork.FPORT_VAL = 0xa4;
+            work.CurrentSoundWork.FPORT_VAL = 0xa4;
             //BRESET:
-            work.soundWork.FMSUB8_VAL = 0;
+            work.CurrentSoundWork.FMSUB8_VAL = 0;
             //  RET TO MAIN
         }
 
@@ -1148,57 +1144,57 @@ namespace mucomDotNET.Driver
 
         public void PLAY()
         {
-            if (work.soundWork.READY == 0) return;
+            if (work.CurrentSoundWork.READY == 0) return;
 
             PCMOUT(0x0b, 0x00);
             PCMOUT(0x01, 0x00);
             PCMOUT(0x00, 0x21);
             PCMOUT(0x10, 0x08);
             PCMOUT(0x10, 0x80);// INIT
-            PCMOUT(0x02, (byte)work.soundWork.STTADR);// START ADR
-            PCMOUT(0x03, (byte)(work.soundWork.STTADR >> 8));
-            PCMOUT(0x04, (byte)work.soundWork.ENDADR);// END ADR
-            PCMOUT(0x05, (byte)(work.soundWork.ENDADR >> 8));
-            PCMOUT(0x09, (byte)work.soundWork.DELT_N);// ｻｲｾｲ ﾚｰﾄ ｶｲ
-            PCMOUT(0x0a, (byte)(work.soundWork.DELT_N >> 8));// ｻｲｾｲ ﾚｰﾄ ｼﾞｮｳｲ
+            PCMOUT(0x02, (byte)work.CurrentSoundWork.STTADR);// START ADR
+            PCMOUT(0x03, (byte)(work.CurrentSoundWork.STTADR >> 8));
+            PCMOUT(0x04, (byte)work.CurrentSoundWork.ENDADR);// END ADR
+            PCMOUT(0x05, (byte)(work.CurrentSoundWork.ENDADR >> 8));
+            PCMOUT(0x09, (byte)work.CurrentSoundWork.DELT_N);// ｻｲｾｲ ﾚｰﾄ ｶｲ
+            PCMOUT(0x0a, (byte)(work.CurrentSoundWork.DELT_N >> 8));// ｻｲｾｲ ﾚｰﾄ ｼﾞｮｳｲ
             PCMOUT(0x00, 0xa0);
 
-            byte e = (byte)(work.soundWork.TOTALV * 4 + work.cd.volume);
+            byte e = (byte)(work.CurrentSoundWork.TOTALV * 4 + work.cd.volume);
             if (e >= 250)
             {
                 e = 0;
             }
             //PL1:
-            if (work.soundWork.PVMODE != 0)
+            if (work.CurrentSoundWork.PVMODE != 0)
             {
                 e += (byte)work.cd.volReg;
             }
             //PL2:
             PCMOUT(0xb, e);// VOLUME
 
-            e = (byte)((work.soundWork.PCMLR & 3) << 6);
+            e = (byte)((work.CurrentSoundWork.PCMLR & 3) << 6);
             PCMOUT(0x01, e);// 1 bit TYPE, L&R OUT
 
             // ｼﾝｺﾞｳﾀﾞｽ
-            work.soundWork.P_OUT = work.soundWork.PCMNUM;
+            work.CurrentSoundWork.P_OUT = work.CurrentSoundWork.PCMNUM;
         }
 
         // **   ﾘｽﾞﾑ ｵﾝｹﾞﾝ ﾉ ｷｰｵﾝ   **
 
         public void DKEYON()
         {
-            if (work.soundWork.READY == 0) return;
-            PSGOUT(0x10, (byte)(work.soundWork.RHYTHM & 0b0011_1111));// KEY ON
+            if (work.CurrentSoundWork.READY == 0) return;
+            PSGOUT(0x10, (byte)(work.CurrentSoundWork.RHYTHM & 0b0011_1111));// KEY ON
         }
 
         // **	KEY-ON ROUTINE   **
 
         public void KEYON()
         {
-            if (work.soundWork.READY == 0) return;
+            if (work.CurrentSoundWork.READY == 0) return;
 
             byte a = 0x04;
-            if (work.soundWork.FMPORT == 0)
+            if (work.CurrentSoundWork.FMPORT == 0)
             {
                 a = 0x00;
             }
@@ -1237,7 +1233,7 @@ namespace mucomDotNET.Driver
         public void STVOL()
         {
             //STV1
-            byte c = (byte)(work.soundWork.TOTALV + work.cd.volume);// INPUT VOLUME
+            byte c = (byte)(work.CurrentSoundWork.TOTALV + work.cd.volume);// INPUT VOLUME
             if (c >= 20)
             {
                 c = 0;
@@ -1253,13 +1249,13 @@ namespace mucomDotNET.Driver
 
         public void OTOPST()
         {
-            if (work.soundWork.PCMFLG != 0)
+            if (work.CurrentSoundWork.PCMFLG != 0)
             {
                 OTOPCM();
                 return;
             }
 
-            if (work.soundWork.DRMF1 != 0)
+            if (work.CurrentSoundWork.DRMF1 != 0)
             {
                 OTODRM();
                 return;
@@ -1274,24 +1270,24 @@ namespace mucomDotNET.Driver
         public void OTODRM()
         {
             DummyOUT();
-            work.soundWork.RHYTHM = work.cd.mData[work.hl++].dat;// SET RETHM PARA
+            work.CurrentSoundWork.RHYTHM = work.cd.mData[work.hl++].dat;// SET RETHM PARA
         }
 
         public void OTOPCM()
         {
             DummyOUT();
             byte a = (byte)work.cd.mData[work.hl++].dat;
-            work.soundWork.PCMNUM = a;
+            work.CurrentSoundWork.PCMNUM = a;
             a--;
             work.cd.instrumentNumber = a;
 
             if (work.pcmTables != null && work.pcmTables.Length > a)
             {
-                work.soundWork.STTADR = work.pcmTables[a].Item2[0];//start address
-                work.soundWork.ENDADR = work.pcmTables[a].Item2[1];//end address
+                work.CurrentSoundWork.STTADR = work.pcmTables[a].Item2[0];//start address
+                work.CurrentSoundWork.ENDADR = work.pcmTables[a].Item2[1];//end address
             }
 
-            if (work.soundWork.PVMODE == 0) return;
+            if (work.CurrentSoundWork.PVMODE == 0) return;
 
             work.cd.volume = (byte)work.pcmTables[a].Item2[3];
         }
@@ -1353,13 +1349,13 @@ namespace mucomDotNET.Driver
         public void VOLPST()
         {
             DummyOUT();
-            if (work.soundWork.PCMFLG != 0)
+            if (work.CurrentSoundWork.PCMFLG != 0)
             {
                 PCMVOL();
                 return;
             }
 
-            if (work.soundWork.DRMF1 != 0)
+            if (work.CurrentSoundWork.DRMF1 != 0)
             {
                 VOLDRM();
                 return;
@@ -1372,7 +1368,7 @@ namespace mucomDotNET.Driver
         public void PCMVOL()
         {
             byte e = (byte)work.cd.mData[work.hl++].dat;
-            if (work.soundWork.PVMODE != 0)
+            if (work.CurrentSoundWork.PVMODE != 0)
             {
                 work.cd.volReg = e;
                 return;
@@ -1391,9 +1387,9 @@ namespace mucomDotNET.Driver
                        //VOLDR2:
             do
             {
-                a = (byte)(work.soundWork.DRMVOL[de] & 0b1100_0000);
+                a = (byte)(work.CurrentSoundWork.DRMVOL[de] & 0b1100_0000);
                 a |= (byte)work.cd.mData[work.hl++].dat;
-                work.soundWork.DRMVOL[de++] = a;
+                work.CurrentSoundWork.DRMVOL[de++] = a;
                 PSGOUT((byte)(0x18 - b + 6), a);
                 b--;
             } while (b != 0);
@@ -1406,7 +1402,7 @@ namespace mucomDotNET.Driver
             byte d = 0x11;
             byte a = (byte)work.cd.volume;
             a &= 0b0011_1111;
-            a = (byte)(work.soundWork.TOTALV * 5 + a);
+            a = (byte)(work.CurrentSoundWork.TOTALV * 5 + a);
             if (a >= 64)
             {
                 a = 0;
@@ -1430,12 +1426,12 @@ namespace mucomDotNET.Driver
             }
             //FD2:
             work.cd.detune = de;
-            if (work.soundWork.PCMFLG == 0)
+            if (work.CurrentSoundWork.PCMFLG == 0)
             {
                 return;
             }
 
-            ushort hl = (ushort)work.soundWork.DELT_N;
+            ushort hl = (ushort)work.CurrentSoundWork.DELT_N;
             hl += (ushort)de;
             PCMOUT(0x09, (byte)hl);
             PCMOUT(0x0a, (byte)(hl >> 8));
@@ -1516,7 +1512,7 @@ namespace mucomDotNET.Driver
 
         public void TLLFOorSSGTremolo()
         {
-            if (work.soundWork.SSGF1 == 0)
+            if (work.CurrentSoundWork.SSGF1 == 0)
             {
                 TLLFO();
                 return;
@@ -1608,7 +1604,7 @@ namespace mucomDotNET.Driver
                 {
                     byte l = (byte)work.cd.mData[work.hl++].dat;
                     byte m = (byte)work.cd.mData[work.hl++].dat;
-                    work.soundWork.DETDAT[bc] = (ushort)(l + m * 0x100);
+                    work.CurrentSoundWork.DETDAT[bc] = (ushort)(l + m * 0x100);
                 }
             }
             else
@@ -1616,7 +1612,7 @@ namespace mucomDotNET.Driver
                 for (int bc = 0; bc < 4; bc++)
                 {
                     byte a = (byte)work.cd.mData[work.hl++].dat;
-                    work.soundWork.DETDAT[bc] = a;
+                    work.CurrentSoundWork.DETDAT[bc] = a;
                 }
             }
         }
@@ -1625,19 +1621,19 @@ namespace mucomDotNET.Driver
 
         public void TO_NML()
         {
-            work.soundWork.PLSET1_VAL = 0x38;
+            work.CurrentSoundWork.PLSET1_VAL = 0x38;
             TNML2(0x3a);
         }
 
         public void TO_EFC()
         {
-            work.soundWork.PLSET1_VAL = 0x78;
+            work.CurrentSoundWork.PLSET1_VAL = 0x78;
             TNML2(0x7a);
         }
 
         public void TNML2(byte a)
         {
-            work.soundWork.PLSET2_VAL = a;
+            work.CurrentSoundWork.PLSET2_VAL = a;
             PSGOUT(0x27, a);
         }
 
@@ -1645,21 +1641,21 @@ namespace mucomDotNET.Driver
 
         public void STEREO()
         {
-            if (work.soundWork.DRMF1 != 0)
+            if (work.CurrentSoundWork.DRMF1 != 0)
             {
                 goto STE2;
             }
-            if (work.soundWork.PCMFLG != 0)
+            if (work.CurrentSoundWork.PCMFLG != 0)
             {
-                work.soundWork.PCMLR = work.cd.mData[work.hl++].dat;
+                work.CurrentSoundWork.PCMLR = work.cd.mData[work.hl++].dat;
                 return;
             }
             //STER2:
             byte a = (byte)work.cd.mData[work.hl++].dat;
             byte c = (byte)(((a >> 2) & 0x3f) | (a << 6));
-            byte d = work.soundWork.PALDAT[work.soundWork.FMPORT + work.cd.channelNumber];
+            byte d = work.CurrentSoundWork.PALDAT[work.CurrentSoundWork.FMPORT + work.cd.channelNumber];
             d = (byte)((d & 0b0011_1111) | c);
-            work.soundWork.PALDAT[work.soundWork.FMPORT + work.cd.channelNumber] = d;
+            work.CurrentSoundWork.PALDAT[work.CurrentSoundWork.FMPORT + work.cd.channelNumber] = d;
             a = (byte)(0x0B4 + work.cd.channelNumber);
             PSGOUT(a, d);
             return;
@@ -1667,22 +1663,22 @@ namespace mucomDotNET.Driver
             byte dat = (byte)work.cd.mData[work.hl++].dat;
             c = dat;
             dat &= 0b0000_1111;
-            a = work.soundWork.DRMVOL[dat];
+            a = work.CurrentSoundWork.DRMVOL[dat];
             a = (byte)(((c << 2) & 0b1100_0000) | (a & 0b0001_1111));
-            work.soundWork.DRMVOL[dat] = a;
+            work.CurrentSoundWork.DRMVOL[dat] = a;
             PSGOUT((byte)(dat + 0x18), a);
         }
 
         public void STEREO_AMD98()
         {
             byte a,c,d;
-            if (work.soundWork.DRMF1 != 0)
+            if (work.CurrentSoundWork.DRMF1 != 0)
             {
                 STEREO_AMD98_RHYTHM();
                 return;
             }
 
-            if (work.soundWork.PCMFLG != 0)
+            if (work.CurrentSoundWork.PCMFLG != 0)
             {
                 STEREO_AMD98_ADPCM();
                 return;
@@ -1698,9 +1694,9 @@ namespace mucomDotNET.Driver
 
             //既存処理
             c = (byte)(((a >> 2) & 0x3f) | (a << 6));//右ローテート2回(左6回のほうがC#的にはシンプル)
-            d = work.soundWork.PALDAT[work.soundWork.FMPORT + work.cd.channelNumber];
+            d = work.CurrentSoundWork.PALDAT[work.CurrentSoundWork.FMPORT + work.cd.channelNumber];
             d = (byte)((d & 0b0011_1111) | c);
-            work.soundWork.PALDAT[work.soundWork.FMPORT + work.cd.channelNumber] = d;
+            work.CurrentSoundWork.PALDAT[work.CurrentSoundWork.FMPORT + work.cd.channelNumber] = d;
             a = (byte)(0x0B4 + work.cd.channelNumber);
             PSGOUT(a, d);
             work.cd.panEnable = 0;//パーン禁止
@@ -1728,9 +1724,9 @@ namespace mucomDotNET.Driver
             a = (byte)autoPantable[a];
 
             c = (byte)(a << 6);
-            d = work.soundWork.PALDAT[work.soundWork.FMPORT + work.cd.channelNumber];
+            d = work.CurrentSoundWork.PALDAT[work.CurrentSoundWork.FMPORT + work.cd.channelNumber];
             d = (byte)((d & 0b0011_1111) | c);
-            work.soundWork.PALDAT[work.soundWork.FMPORT + work.cd.channelNumber] = d;
+            work.CurrentSoundWork.PALDAT[work.CurrentSoundWork.FMPORT + work.cd.channelNumber] = d;
             a = (byte)(0x0B4 + work.cd.channelNumber);
             PSGOUT(a, d);
 
@@ -1751,37 +1747,37 @@ namespace mucomDotNET.Driver
             if (a < 4)
             {
                 //既存処理
-                c = work.soundWork.DRMVOL[b];
+                c = work.CurrentSoundWork.DRMVOL[b];
                 a = (byte)(((a << 6) & 0b1100_0000) | (c & 0b0001_1111));
-                work.soundWork.DRMVOL[b] = a;
+                work.CurrentSoundWork.DRMVOL[b] = a;
                 PSGOUT((byte)(b + 0x18), a);
-                work.soundWork.DrmPanEnable[b] = 0;//パーン禁止
+                work.CurrentSoundWork.DrmPanEnable[b] = 0;//パーン禁止
                 return;
             }
 
-            work.soundWork.DrmPanEnable[b] |= 1;//パーン許可
-            work.soundWork.DrmPanMode[b] = a;
-            work.soundWork.DrmPanCounterWork[b] = (byte)work.cd.mData[work.hl].dat;
-            work.soundWork.DrmPanCounter[b] = (byte)work.cd.mData[work.hl].dat;
+            work.CurrentSoundWork.DrmPanEnable[b] |= 1;//パーン許可
+            work.CurrentSoundWork.DrmPanMode[b] = a;
+            work.CurrentSoundWork.DrmPanCounterWork[b] = (byte)work.cd.mData[work.hl].dat;
+            work.CurrentSoundWork.DrmPanCounter[b] = (byte)work.cd.mData[work.hl].dat;
             work.hl++;
 
             switch (a)
             {
                 case 4:
-                    work.soundWork.DrmPanValue[b] = a = 2;
+                    work.CurrentSoundWork.DrmPanValue[b] = a = 2;
                     break;
                 case 5:
-                    work.soundWork.DrmPanValue[b] = a = 0;
+                    work.CurrentSoundWork.DrmPanValue[b] = a = 0;
                     break;
                 default:
-                    work.soundWork.DrmPanValue[b] = a = 1;
+                    work.CurrentSoundWork.DrmPanValue[b] = a = 1;
                     break;
             }
 
             a = (byte)autoPantable[a];
-            c = work.soundWork.DRMVOL[b];
+            c = work.CurrentSoundWork.DRMVOL[b];
             a = (byte)(((a << 6) & 0b1100_0000) | (c & 0b0001_1111));
-            work.soundWork.DRMVOL[b] = a;
+            work.CurrentSoundWork.DRMVOL[b] = a;
             PSGOUT((byte)(b + 0x18), a);
         }
 
@@ -1794,7 +1790,7 @@ namespace mucomDotNET.Driver
             if (a < 4)
             {
                 //既存処理
-                work.soundWork.PCMLR = a;
+                work.CurrentSoundWork.PCMLR = a;
                 work.cd.panEnable = 0;//パーン禁止
                 return;
             }
@@ -1819,13 +1815,13 @@ namespace mucomDotNET.Driver
             }
 
             a = (byte)autoPantable[a];
-            work.soundWork.PCMLR = a;
+            work.CurrentSoundWork.PCMLR = a;
             PCMOUT(0x01, (byte)(a << 6));
         }
 
         public void PANNING()
         {
-            if (work.soundWork.DRMF1 != 0)
+            if (work.CurrentSoundWork.DRMF1 != 0)
             {
                 PANNING_RHYTHM();
                 return;
@@ -1853,10 +1849,10 @@ namespace mucomDotNET.Driver
                 ushort ax;
                 do
                 {
-                    ax = work.soundWork.RANDUM;
+                    ax = work.CurrentSoundWork.RANDUM;
                     ax *= 5;
                     ax += 0x1993;
-                    work.soundWork.RANDUM = ax;
+                    work.CurrentSoundWork.RANDUM = ax;
                     ax &= 0x0300;
                 } while (ax == 0);
                 work.cd.panValue = (byte)(ax >> 8);//ah : 1～3
@@ -1869,23 +1865,23 @@ namespace mucomDotNET.Driver
             args.Add((int)a);
 
             LinePos lp = new LinePos("", -1, -1, -1
-                , work.soundWork.SSGF1 == 0 ? "FM" : "ADPCM"
+                , work.CurrentSoundWork.SSGF1 == 0 ? "FM" : "ADPCM"
                 , "YM2608", 0, 0, work.cd.channelNumber);
             work.crntMmlDatum = new MmlDatum(enmMMLType.Pan, args, lp, 0);
             DummyOUT();
 
-            if (work.soundWork.PCMFLG == 0)
+            if (work.CurrentSoundWork.PCMFLG == 0)
             {
                 c = (byte)(((a >> 2) & 0x3f) | (a << 6));//右ローテート2回(左6回のほうがC#的にはシンプル)
-                d = work.soundWork.PALDAT[work.soundWork.FMPORT + work.cd.channelNumber];
+                d = work.CurrentSoundWork.PALDAT[work.CurrentSoundWork.FMPORT + work.cd.channelNumber];
                 d = (byte)((d & 0b0011_1111) | c);
-                work.soundWork.PALDAT[work.soundWork.FMPORT + work.cd.channelNumber] = d;
+                work.CurrentSoundWork.PALDAT[work.CurrentSoundWork.FMPORT + work.cd.channelNumber] = d;
                 a = (byte)(0x0B4 + work.cd.channelNumber);
                 PSGOUT(a, d);
                 return;
             }
 
-            work.soundWork.PCMLR = a;
+            work.CurrentSoundWork.PCMLR = a;
             c = (byte)((a << 6) & 0xc0);
             PCMOUT(0x01, c);
         }
@@ -1894,21 +1890,21 @@ namespace mucomDotNET.Driver
         {
             for (int n = 0; n < 6; n++)
             {
-                if ((work.soundWork.DrmPanEnable[n] & 1) == 0) continue;
-                if ((--work.soundWork.DrmPanCounterWork[n]) != 0) continue;
+                if ((work.CurrentSoundWork.DrmPanEnable[n] & 1) == 0) continue;
+                if ((--work.CurrentSoundWork.DrmPanCounterWork[n]) != 0) continue;
 
-                work.soundWork.DrmPanCounterWork[n] = work.soundWork.DrmPanCounter[n];//; カウンター再設定
+                work.CurrentSoundWork.DrmPanCounterWork[n] = work.CurrentSoundWork.DrmPanCounter[n];//; カウンター再設定
 
-                if (work.soundWork.DrmPanMode[n] == 4|| work.soundWork.DrmPanMode[n] == 5)
+                if (work.CurrentSoundWork.DrmPanMode[n] == 4|| work.CurrentSoundWork.DrmPanMode[n] == 5)
                 {
                     //LEFT / RIGHT
-                    byte ah = work.soundWork.DrmPanValue[n];
+                    byte ah = work.CurrentSoundWork.DrmPanValue[n];
                     ah++;
                     if (ah == autoPantable.Length)
                     {
                         ah = 0;
                     }
-                    work.soundWork.DrmPanValue[n] = ah;//ah : 0～
+                    work.CurrentSoundWork.DrmPanValue[n] = ah;//ah : 0～
                 }
                 else
                 {
@@ -1916,22 +1912,22 @@ namespace mucomDotNET.Driver
                     ushort ax;
                     do
                     {
-                        ax = work.soundWork.RANDUM;
+                        ax = work.CurrentSoundWork.RANDUM;
                         ax *= 5;
                         ax += 0x1993;
-                        work.soundWork.RANDUM = ax;
+                        work.CurrentSoundWork.RANDUM = ax;
                         ax &= 0x0300;
                     } while (ax == 0);
-                    work.soundWork.DrmPanValue[n] = (byte)(ax >> 8);//ah : 1～3
+                    work.CurrentSoundWork.DrmPanValue[n] = (byte)(ax >> 8);//ah : 1～3
                 }
 
-                byte a = (work.soundWork.DrmPanMode[n] == 4 || work.soundWork.DrmPanMode[n] == 5) 
-                    ? autoPantable[work.soundWork.DrmPanValue[n]] 
-                    : work.soundWork.DrmPanValue[n];
+                byte a = (work.CurrentSoundWork.DrmPanMode[n] == 4 || work.CurrentSoundWork.DrmPanMode[n] == 5) 
+                    ? autoPantable[work.CurrentSoundWork.DrmPanValue[n]] 
+                    : work.CurrentSoundWork.DrmPanValue[n];
 
-                byte c = work.soundWork.DRMVOL[n];
-                a = (byte)(((work.soundWork.DrmPanValue[n] << 6) & 0b1100_0000) | (c & 0b0001_1111));
-                work.soundWork.DRMVOL[n] = a;
+                byte c = work.CurrentSoundWork.DRMVOL[n];
+                a = (byte)(((work.CurrentSoundWork.DrmPanValue[n] << 6) & 0b1100_0000) | (c & 0b0001_1111));
+                work.CurrentSoundWork.DRMVOL[n] = a;
                 PSGOUT((byte)(n + 0x18), a);
 
             }
@@ -1942,7 +1938,7 @@ namespace mucomDotNET.Driver
         public void FLGSET()
         {
             byte a = (byte)work.cd.mData[work.hl++].dat;
-            work.soundWork.FLGADR = a;
+            work.CurrentSoundWork.FLGADR = a;
         }
 
         // **   WRITE REG   **
@@ -1960,12 +1956,12 @@ namespace mucomDotNET.Driver
         {
             work.cd.volume = work.cd.mData[work.hl++].dat + work.cd.volume;
 
-            if (work.soundWork.PCMFLG != 0)
+            if (work.CurrentSoundWork.PCMFLG != 0)
             {
                 return;
             }
 
-            if (work.soundWork.DRMF1 != 0)
+            if (work.CurrentSoundWork.DRMF1 != 0)
             {
                 DVOLSET();
                 return;
@@ -1984,9 +1980,9 @@ namespace mucomDotNET.Driver
 
             byte c = (byte)work.cd.mData[work.hl++].dat;// PMS
             c = (byte)(c | (work.cd.mData[work.hl++].dat << 4));// AMS+PMS
-            int de = work.soundWork.FMPORT + work.cd.channelNumber; // PALDAT;
-            a = (byte)((work.soundWork.PALDAT[de] & 0b1100_0000) | c);
-            work.soundWork.PALDAT[de] = a;
+            int de = work.CurrentSoundWork.FMPORT + work.cd.channelNumber; // PALDAT;
+            a = (byte)((work.CurrentSoundWork.PALDAT[de] & 0b1100_0000) | c);
+            work.CurrentSoundWork.PALDAT[de] = a;
             PSGOUT((byte)(0xb4 + work.cd.channelNumber), a);
         }
 
@@ -2032,7 +2028,7 @@ namespace mucomDotNET.Driver
         public void PVMCHG()
         {
             byte a = (byte)work.cd.mData[work.hl++].dat;
-            work.soundWork.PVMODE = a;
+            work.CurrentSoundWork.PVMODE = a;
         }
 
         // **	ﾘﾊﾞｰﾌﾞ**
@@ -2087,7 +2083,7 @@ namespace mucomDotNET.Driver
             //ENVPST();
             for (int i = 0; i < 6; i++)
             {
-                work.cd.softEnvelopeParam[i] = work.soundWork.SSGDAT[ptr + i];
+                work.cd.softEnvelopeParam[i] = work.CurrentSoundWork.SSGDAT[ptr + i];
             }
             work.cd.volume = work.cd.volume | 0b1001_0000;
 
@@ -2103,7 +2099,7 @@ namespace mucomDotNET.Driver
 
             for (int i = 0; i < 6; i++)
             {
-                work.soundWork.SSGDAT[ptr + i] = (byte)work.cd.mData[work.hl++].dat;
+                work.CurrentSoundWork.SSGDAT[ptr + i] = (byte)work.cd.mData[work.hl++].dat;
             }
 
         }
@@ -2133,7 +2129,7 @@ namespace mucomDotNET.Driver
 
         public void PV1(byte c, byte e)
         {
-            byte a = work.soundWork.TOTALV;
+            byte a = work.CurrentSoundWork.TOTALV;
             a += c;
             if (a < 16)
             {
@@ -2152,7 +2148,7 @@ namespace mucomDotNET.Driver
         {
             byte c = (byte)work.cd.mData[work.hl++].dat;
             byte b = (byte)work.cd.channelNumber;
-            byte e = work.soundWork.PREGBF[5];
+            byte e = work.CurrentSoundWork.PREGBF[5];
             b >>= 1;
             b++;
             byte d = b;
@@ -2178,7 +2174,7 @@ namespace mucomDotNET.Driver
             d = 7;
             e = a;
             PSGOUT(d, e);
-            work.soundWork.PREGBF[5] = e;
+            work.CurrentSoundWork.PREGBF[5] = e;
         }
 
         // **   ﾉｲｽﾞ ｼｭｳﾊｽｳ   **
@@ -2187,7 +2183,7 @@ namespace mucomDotNET.Driver
         {
             byte e = (byte)work.cd.mData[work.hl++].dat;
             PSGOUT(6, e);
-            work.soundWork.PREGBF[4] = e;
+            work.CurrentSoundWork.PREGBF[4] = e;
         }
 
         // **	SSG VOLUME UP & DOWN**
@@ -2267,14 +2263,14 @@ namespace mucomDotNET.Driver
 
         public void PLS2(int hl)
         {
-            if (work.soundWork.PCMFLG == 0)
+            if (work.CurrentSoundWork.PCMFLG == 0)
             {
                 PLSKI2(hl);
                 return;
             }
 
-            hl += (int)work.soundWork.DELT_N;
-            work.soundWork.DELT_N = (uint)hl;
+            hl += (int)work.CurrentSoundWork.DELT_N;
+            work.CurrentSoundWork.DELT_N = (uint)hl;
 
             PCMOUT(0x09, (byte)hl);
             PCMOUT(0x0a, (byte)(hl >> 8));
@@ -2282,14 +2278,14 @@ namespace mucomDotNET.Driver
 
         public void PLSKI2(int hl)
         {
-            if (work.soundWork.SSGF1 != 0 && work.cd.SSGTremoloFlg)
+            if (work.CurrentSoundWork.SSGF1 != 0 && work.cd.SSGTremoloFlg)
             {
                 work.cd.SSGTremoloVol += hl;
                 //Console.WriteLine(work.cd.SSGTremoloVol);
                 return;
             }
 
-            if (work.soundWork.SSGF1 == 0)
+            if (work.CurrentSoundWork.SSGF1 == 0)
             {
                 //KUMA:FMの時はリミットチェック処理
 
@@ -2335,7 +2331,7 @@ namespace mucomDotNET.Driver
             work.cd.fnum = hl;// SET NEW F-NUM1
                               // SET NEW F-NUM2
 
-            if (work.soundWork.SSGF1 == 0)
+            if (work.CurrentSoundWork.SSGF1 == 0)
             {
                 LFOP5(hl);
                 return;
@@ -2379,13 +2375,13 @@ namespace mucomDotNET.Driver
                 return;
             }
 
-            if (work.soundWork.PLSET1_VAL != 0x78)
+            if (work.CurrentSoundWork.PLSET1_VAL != 0x78)
             {
                 PLLFO2(hl);// NOT SE MODE
                 return;
             }
 
-            work.soundWork.NEWFNM = hl;
+            work.CurrentSoundWork.NEWFNM = hl;
             //LFOP4:
             hl = 0;
             int iy = 0;
@@ -2393,9 +2389,9 @@ namespace mucomDotNET.Driver
             //LFOP3:
             do
             {
-                int fnum = work.soundWork.NEWFNM + work.soundWork.DETDAT[hl++];
+                int fnum = work.CurrentSoundWork.NEWFNM + work.CurrentSoundWork.DETDAT[hl++];
 
-                byte d = work.soundWork.OP_SEL[iy++];
+                byte d = work.CurrentSoundWork.OP_SEL[iy++];
                 byte e = (byte)(fnum >> 8);
                 PSGOUT(d, e);
 
@@ -2460,7 +2456,7 @@ namespace mucomDotNET.Driver
 
         public void SSGSUB()
         {
-            work.cd = work.soundWork.CHDAT[work.idx];
+            work.cd = work.CurrentSoundWork.CHDAT[work.idx];
             work.hl = work.cd.dataAddressWork;
 
             work.cd.lengthCounter = (byte)(work.cd.lengthCounter - 1);
@@ -2503,11 +2499,11 @@ namespace mucomDotNET.Driver
             
 
             byte e = work.A_Reg;
-            if (work.soundWork.READY == 0)
+            if (work.CurrentSoundWork.READY == 0)
             {
                 e = 0;
             }
-            if (work.soundWork.KEY_FLAG != 0xff)
+            if (work.CurrentSoundWork.KEY_FLAG != 0xff)
             {
                 byte d = (byte)work.cd.volReg;
                 PSGOUT(d, e);
@@ -2635,7 +2631,7 @@ namespace mucomDotNET.Driver
             b = a;
             a &= 0b0000_1111;//  GET KEY CODE
             byte e = a;
-            int hl = work.soundWork.SNUMB[e];// GET FNUM2
+            int hl = work.CurrentSoundWork.SNUMB[e];// GET FNUM2
             int de = work.cd.detune;// GET DETUNE DATA
             hl += de;//  DETUNE PLUS
             hl = (short)hl;
@@ -2670,7 +2666,7 @@ namespace mucomDotNET.Driver
             if (work.cd.hardEnveFlg)
             {
                 //// ---   HARD ENV. KEY ON
-                if (work.soundWork.KEY_FLAG != 0xff)
+                if (work.CurrentSoundWork.KEY_FLAG != 0xff)
                 {
                     PSGOUT((byte)work.cd.volReg, 0x10);
                 }
@@ -2878,11 +2874,11 @@ namespace mucomDotNET.Driver
             if (!work.cd.hardEnveFlg)
             {
                 byte e = a;
-                if (work.soundWork.READY == 0)
+                if (work.CurrentSoundWork.READY == 0)
                 {
                     e = 0;
                 }
-                if (work.soundWork.KEY_FLAG != 0xff)
+                if (work.CurrentSoundWork.KEY_FLAG != 0xff)
                 {
                     byte d = (byte)work.cd.volReg;
                     PSGOUT(d, e);
@@ -2941,8 +2937,8 @@ namespace mucomDotNET.Driver
 
         private void KeyOnDelaying()
         {
-            if (work.soundWork.DRMF1 != 0) return;
-            if (work.soundWork.PCMFLG != 0) return;
+            if (work.CurrentSoundWork.DRMF1 != 0) return;
+            if (work.CurrentSoundWork.PCMFLG != 0) return;
             if (!work.cd.KeyOnDelayFlag) return;
 
             byte newf = work.cd.keyOnSlot;
@@ -2966,10 +2962,10 @@ namespace mucomDotNET.Driver
 
         public void KEYON2()
         {
-            if (work.soundWork.READY == 0) return;
+            if (work.CurrentSoundWork.READY == 0) return;
 
             byte a = 0x04;
-            if (work.soundWork.FMPORT == 0)
+            if (work.CurrentSoundWork.FMPORT == 0)
             {
                 a = 0x00;
             }

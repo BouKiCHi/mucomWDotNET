@@ -81,14 +81,12 @@ namespace mucomDotNET.Player
 
             rsc = CheckDevice();
 
-            try
-            {
+            try {
 
                 SineWaveProvider16 waveProvider;
                 int latency = 1000;
 
-                switch (device)
-                {
+                switch (device) {
                     case 0:
                         waveProvider = new SineWaveProvider16();
                         waveProvider.SetWaveFormat((int)SamplingRate, 2);
@@ -96,7 +94,8 @@ namespace mucomDotNET.Player
                         audioOutput = new DirectSoundOut(latency);
                         audioOutput.Init(waveProvider);
                         break;
-                    case 1:case 2:
+                    case 1:
+                    case 2:
                         trdMain = new Thread(new ThreadStart(RealCallback));
                         trdMain.Priority = ThreadPriority.Highest;
                         trdMain.IsBackground = true;
@@ -106,39 +105,9 @@ namespace mucomDotNET.Player
                         break;
                 }
 
-                MDSound.ym2608 ym2608 = new MDSound.ym2608();
-                MDSound.MDSound.Chip chip = new MDSound.MDSound.Chip
-                {
-                    type = MDSound.MDSound.enmInstrumentType.YM2608,
-                    ID = 0,
-                    Instrument = ym2608,
-                    Update = ym2608.Update,
-                    Start = ym2608.Start,
-                    Stop = ym2608.Stop,
-                    Reset = ym2608.Reset,
-                    SamplingRate = SamplingRate,
-                    Clock = opnaMasterClock,
-                    Volume = 0,
-                    Option = new object[] { GetApplicationFolder() }
-                };
+                MDSound.MDSound.Chip[] ChipData = NewMethod();
 
-                // ふたつめだよ 2nd instance here
-                MDSound.ym2608 ym2608_2 = new MDSound.ym2608();
-                MDSound.MDSound.Chip chip2 = new MDSound.MDSound.Chip {
-                    type = MDSound.MDSound.enmInstrumentType.YM2608,
-                    ID = 0,
-                    Instrument = ym2608_2,
-                    Update = ym2608_2.Update,
-                    Start = ym2608_2.Start,
-                    Stop = ym2608_2.Stop,
-                    Reset = ym2608_2.Reset,
-                    SamplingRate = SamplingRate,
-                    Clock = opnaMasterClock,
-                    Volume = 0,
-                    Option = new object[] { GetApplicationFolder() }
-                };
-
-                mds = new MDSound.MDSound(SamplingRate, samplingBuffer, new MDSound.MDSound.Chip[] { chip, chip2 });
+                mds = new MDSound.MDSound(SamplingRate, samplingBuffer, ChipData);
 
 #if NETCOREAPP
                 System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
@@ -154,25 +123,23 @@ namespace mucomDotNET.Player
                     );
 
                 List<Tuple<string, string>> tags = drv.GetTags();
-                if (tags != null)
-                {
-                    foreach (Tuple<string, string> tag in tags)
-                    {
+                if (tags != null) {
+                    foreach (Tuple<string, string> tag in tags) {
                         if (tag.Item1 == "") continue;
                         Log.WriteLine(LogLevel.INFO, string.Format("{0,-16} : {1}", tag.Item1, tag.Item2));
                     }
                 }
-                
+
                 if (loadADPCMOnly) return 0;
 
                 drv.StartRendering((int)SamplingRate, (int)opnaMasterClock);
 
-                switch(device)
-                {
+                switch (device) {
                     case 0:
                         audioOutput.Play();
                         break;
-                    case 1: case 2:
+                    case 1:
+                    case 2:
                         trdMain.Start();
                         break;
                 }
@@ -181,18 +148,14 @@ namespace mucomDotNET.Player
 
                 Log.WriteLine(LogLevel.INFO, "終了する場合は何かキーを押してください");
 
-                while (true)
-                {
+                while (true) {
                     System.Threading.Thread.Sleep(1);
-                    if (Console.KeyAvailable)
-                    {
+                    if (Console.KeyAvailable) {
                         break;
                     }
                     //ステータスが0(終了)又は0未満(エラー)の場合はループを抜けて終了
-                    if (drv.GetStatus() <= 0)
-                    {
-                        if (drv.GetStatus() == 0)
-                        {
+                    if (drv.GetStatus() <= 0) {
+                        if (drv.GetStatus() == 0) {
                             System.Threading.Thread.Sleep((int)(latency * 2.0));//実際の音声が発音しきるまでlatency*2の分だけ待つ
                         }
                         break;
@@ -201,8 +164,7 @@ namespace mucomDotNET.Player
 
                 drv.MusicSTOP();
                 drv.StopRendering();
-            }
-            catch(Exception ex)
+            } catch (Exception ex)
             {
                 Log.WriteLine(LogLevel.FATAL, "演奏失敗");
                 Log.WriteLine(LogLevel.FATAL, string.Format("message:{0}", ex.Message));
@@ -235,6 +197,30 @@ namespace mucomDotNET.Player
             }
 
             return 0;
+        }
+
+        private static MDSound.MDSound.Chip[] NewMethod() {
+            List<MDSound.MDSound.Chip> ChipList = new List<MDSound.MDSound.Chip>();
+
+            for(var i = 0; i < CommonData.MAX_CHIP; i++) {
+                MDSound.ym2608 ym2608 = new MDSound.ym2608();
+                MDSound.MDSound.Chip chip = new MDSound.MDSound.Chip {
+                    type = MDSound.MDSound.enmInstrumentType.YM2608,
+                    ID = 0,
+                    Instrument = ym2608,
+                    Update = ym2608.Update,
+                    Start = ym2608.Start,
+                    Stop = ym2608.Stop,
+                    Reset = ym2608.Reset,
+                    SamplingRate = SamplingRate,
+                    Clock = opnaMasterClock,
+                    Volume = 0,
+                    Option = new object[] { GetApplicationFolder() }
+                };
+                ChipList.Add(chip);
+            }
+
+            return ChipList.ToArray();
         }
 
         private static void OPNAWaitSend(long elapsed, int size)
@@ -554,12 +540,10 @@ namespace mucomDotNET.Player
             switch(device)
             {
                 case 0:
+                    if (dat.port < 0) break;
                     var portno = (byte)dat.port;
                     var chipId = (byte)0;
-                    var chipIndex = 0;
-                    if ((portno & 0x02) != 0) {
-                        chipIndex = 1;
-                    }
+                    var chipIndex = portno >> 1;
                     portno &= 0x01;
                     mds.WriteYM2608(chipIndex, chipId, portno, (byte)dat.address, (byte)dat.data);
                     break;

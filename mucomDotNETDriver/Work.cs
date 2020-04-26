@@ -35,28 +35,36 @@ namespace mucomDotNET.Driver
         public byte[] fmVoice = null;
         public Tuple<string, ushort[]>[] pcmTables = null;
         public MmlDatum[] mData = null;
-        public SoundWork soundWork = null;
+        public SoundWork CurrentSoundWork = null;
         public byte[] fmVoiceAtMusData = null;
         public bool isDotNET = false;
 
-        public SoundWork[] soundWorkData;
+        public List<SoundWork> SoundWorkList;
 
         public Work()
         {
             Init();
         }
 
-        public int MaxSoundWork = 2;
+        /// <summary>
+        /// 最大チップ数
+        /// </summary>
+        public int MaxChip = CommonData.MAX_CHIP;
 
         internal void Init()
         {
-            soundWorkData = new SoundWork[] { new SoundWork(), new SoundWork() };
-            for(int i=0; i < MaxSoundWork; i++) { soundWorkData[i].Init(); }
-            soundWork = soundWorkData[0];
+            SoundWorkList = new List<SoundWork>();
+            for(int i=0; i < MaxChip; i++) {
+                var sw = new SoundWork();
+                sw.Init();
+                SoundWorkList.Add(sw);
+            }
+
+            CurrentSoundWork = SoundWorkList[0];
         }
 
         public void SetChipWork(int index) {
-            soundWork = soundWorkData[index];
+            CurrentSoundWork = SoundWorkList[index];
         }
     }
 }
