@@ -314,6 +314,10 @@ namespace mucomDotNET.Compiler
                 int pcmflag = 0;
                 int maxcount = 0;
                 int mubsize = 0;
+
+                List<string> totalCountTextList = new List<string>();
+                List<string> loopCountTextList = new List<string>();
+                List<string> bufferCountTextList = new List<string>();
                 string strTcount = "";
                 string strLcount = "";
                 string strBcount = "";
@@ -324,11 +328,7 @@ namespace mucomDotNET.Compiler
 
                 for (int i = 0; i < CommonData.MAX_WORK_CHANNEL; i++)
                 {
-                    if (i % CommonData.MAX_CHIP_CH == 0) {
-                        strTcount += "\n";
-                        strLcount += "\n";
-                        strBcount += "\n";
-                    }
+
                     if (work.lcnt[i] != 0) { work.lcnt[i] = work.tcnt[i] - (work.lcnt[i] - 1); }
                     if (work.tcnt[i] > maxcount) maxcount = work.tcnt[i];
                     var TrackChar = work.GetTrackCharacter(i);
@@ -342,6 +342,22 @@ namespace mucomDotNET.Compiler
                     {
                         throw new MucException(string.Format(Common.msg.get("E0700"), TrackChar, work.bufCount[i]));
                     }
+
+                    if (i % CommonData.MAX_CHIP_CH == CommonData.MAX_CHIP_CH - 1) {
+                        totalCountTextList.Add(strTcount);
+                        loopCountTextList.Add(strLcount);
+                        bufferCountTextList.Add(strBcount);
+                        strTcount = "";
+                        strLcount = "";
+                        strBcount = "";
+                    }
+                }
+
+                // 余りがある場合
+                if (strTcount.Length > 0) {
+                    totalCountTextList.Add(strTcount);
+                    loopCountTextList.Add(strLcount);
+                    bufferCountTextList.Add(strBcount);
                 }
 
                 work.compilerInfo.jumpClock = work.JCLOCK;
@@ -359,11 +375,18 @@ namespace mucomDotNET.Compiler
 
                 Log.WriteLine(LogLevel.INFO, ProgramTitle);
                 Log.WriteLine(LogLevel.INFO, "[ Total count ]");
-                Log.WriteLine(LogLevel.INFO, strTcount);
+                foreach(var s in totalCountTextList) {
+                    Log.WriteLine(LogLevel.INFO, s);
+                }
                 Log.WriteLine(LogLevel.INFO, "[ Loop count  ]");
-                Log.WriteLine(LogLevel.INFO, strLcount);
+                foreach (var s in loopCountTextList) {
+                    Log.WriteLine(LogLevel.INFO, s);
+                }
+
                 Log.WriteLine(LogLevel.INFO, "[ Buffer count  ]");
-                Log.WriteLine(LogLevel.INFO, strBcount);
+                foreach (var s in bufferCountTextList) {
+                    Log.WriteLine(LogLevel.INFO, s);
+                }
                 Log.WriteLine(LogLevel.INFO, "");
                 Log.WriteLine(LogLevel.INFO, string.Format("Used FM voice : {0}", fmvoice));
                 Log.WriteLine(LogLevel.INFO, string.Format("#Data Buffer  : ${0:x05} - ${1:x05} (${2:x05})", start, start + length - 1, length));
