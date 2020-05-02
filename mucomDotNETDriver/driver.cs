@@ -81,6 +81,10 @@ namespace mucomDotNET.Driver
             Init(chipWriteRegister, chipWaitSend, srcBuf, addtionalOption, CreateAppendFileReaderCallback(Path.GetDirectoryName(fileName)));
         }
 
+        private string LogFormatter(string Item, object Value) {
+            return $"{Item,-16} : {Value}";
+         }
+
         public void Init(Action<ChipDatum> chipWriteRegister, Action<long, int> chipWaitSend, MmlDatum[] srcBuf, object addtionalOption, Func<string, Stream> appendFileReaderCallback)
         {
             if (srcBuf == null || srcBuf.Length < 1) return;
@@ -98,6 +102,11 @@ namespace mucomDotNET.Driver
             pcm = GetPCMFromSrcBuf() ?? GetPCMDataFromFile(appendFileReaderCallback);
             work.pcmTables = GetPCMTable();
             work.isDotNET = IsDotNETFromTAG();
+            work.SetMaxChannel((int)header.ext_channel_num);
+
+            Log.WriteLine(LogLevel.INFO, LogFormatter("Channels", work.MaxChannels));
+            Log.WriteLine(LogLevel.INFO, LogFormatter("Number of Chips", work.MaxChip));
+
 
             WriteOPNA = chipWriteRegister;
             WaitSendOPNA = chipWaitSend;
@@ -120,8 +129,7 @@ namespace mucomDotNET.Driver
 
             if (loadADPCMOnly) return;
 
-            bool UseTrackExtend = true;
-            music2 = new Music2(work, WriteRegister, UseTrackExtend);
+            music2 = new Music2(work, WriteRegister);
             music2.notSoundBoard2 = notSoundBoard2;
         }
 

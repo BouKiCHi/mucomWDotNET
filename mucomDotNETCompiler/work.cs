@@ -8,8 +8,6 @@ namespace mucomDotNET.Compiler
 {
     public class work
     {
-        
-
         //使用しない！
         //public const int T_CLK = 0x8C10;
         //public const int BEFMD = T_CLK + 4 * 11 + 1;//+1ｱﾏﾘ
@@ -110,10 +108,10 @@ namespace mucomDotNET.Compiler
         // 各チップのトラック
         // ABCDEFGHIJK
         // LMNOPQRSTUV
-        // WXYZabcdefg
-        // hijklmnopqr
+        // abcdefghijk
+        // lmnopqrstuv
 
-        public string Tracks = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqr";
+        public string Tracks = "ABCDEFGHIJKLMNOPQRSTUVabcdefghijklmnopqrstuv";
 
         public int GetTrackNo(char ch) {
             return Tracks.IndexOf(ch);

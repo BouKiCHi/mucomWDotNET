@@ -22,27 +22,29 @@ namespace mucomDotNET.Driver
 
         private byte[] autoPantable = new byte[] { 2, 3, 1, 3 };
 
+        /// <summary>
+        /// すべてのチップに同時出力
+        /// </summary>
+        /// <param name="dat"></param>
         private void WriteOPNASimultaneousOutput(ChipDatum dat) {
-            for(var c = 0; c < CommonData.MAX_CHIP; c++) {
+            for(var c = 0; c < work.MaxChip; c++) {
                 var portofs = 0x02 * c;
                 var d1 = new ChipDatum(portofs + (dat.port & 0x01), dat.address, dat.data, dat.time, dat.addtionalData);
                 WriteOPNARegister(d1);
             }
         }
 
+        /// <summary>
+        /// 現在のワークを加算して出力
+        /// </summary>
+        /// <param name="dat"></param>
         private void WriteOPNAOffsetOutput(ChipDatum dat) {
             var d1 = new ChipDatum(work.CurrentSoundWork.PORT_OFS + (dat.port & 0x01), dat.address, dat.data, dat.time, dat.addtionalData);
             WriteOPNARegister(d1);
         }
 
-
         /// <summary>
-        /// トラック拡張時のフラグ
-        /// </summary>
-        public bool trackExtend = false;
-
-        /// <summary>
-        /// ドライバ再生時の最大チャンネル数
+        /// 曲データの最大トラック数
         /// </summary>
         public int MaxDriverChannel = 11;
 
@@ -51,13 +53,9 @@ namespace mucomDotNET.Driver
         /// </summary>
         public int MaxChipChannel = 11;
 
-
-        public Music2(Work work, Action<ChipDatum> WriteOPNARegister, bool extend) : this(work, WriteOPNARegister) {
-            trackExtend = extend;
-            MaxDriverChannel = CommonData.MAX_WORK_CHANNEL;
-        }
         public Music2(Work work, Action<ChipDatum> WriteOPNARegister)
         {
+            this.MaxDriverChannel = work.MaxChannels;
             this.work = work;
             this.WriteOPNARegister = WriteOPNARegister;
             initMusic2();
@@ -578,14 +576,14 @@ namespace mucomDotNET.Driver
         public void DRIVE() {
             int n = 0;
 
-            for(var ci = 0; ci < CommonData.MAX_CHIP; ci++) {
+            for(var ci = 0; ci < work.MaxChip; ci++) {
                 work.SetChipWork(ci);
                 work.CurrentSoundWork.PORT_OFS = ci * 2;
                 n = DriveOffset(0, n);
             }
 
             if (work.maxLoopCount == -1) n = 0;
-            if (n == MaxDriverChannel)
+            if (n == work.MaxChannels)
                 MSTOP();
         }
 

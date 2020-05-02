@@ -14,6 +14,7 @@ namespace mucomDotNET.Driver
         public object SystemInterrupt = new object();
 
         private int _status = 0;
+
         public int Status
         {
             get { lock (lockObj) { return _status; } }
@@ -47,14 +48,28 @@ namespace mucomDotNET.Driver
         }
 
         /// <summary>
-        /// 最大チップ数
+        /// 最大チップ数(初期値は対応最大数)
         /// </summary>
         public int MaxChip = CommonData.MAX_CHIP;
+
+        /// <summary>
+        /// 最大チャンネル数
+        /// </summary>
+        public int MaxChannels;
+
+        /// <summary>
+        /// 最大チップ数の設定
+        /// </summary>
+        /// <param name="chan"></param>
+        public void SetMaxChannel(int chan) {
+            MaxChip = chan / 11;
+            MaxChannels = 11 * MaxChip;
+        }
 
         internal void Init()
         {
             SoundWorkList = new List<SoundWork>();
-            for(int i=0; i < MaxChip; i++) {
+            for(int i=0; i < CommonData.MAX_CHIP; i++) {
                 var sw = new SoundWork();
                 sw.Init();
                 SoundWorkList.Add(sw);

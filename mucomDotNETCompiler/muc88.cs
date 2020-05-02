@@ -18,17 +18,17 @@ namespace mucomDotNET.Compiler
         private iEncoding enc = null;
         private work work = null;
 
-        public bool trackExtend = false;
+        public MucomSetting setting;
 
         /// <summary>
         /// 最大チャンネル数
         /// </summary>
         public int GetMaxChannel() {
-            return CommonData.MAX_WORK_CHANNEL;
+            return setting.Channels;
         }
 
-        public Muc88(work work, MUCInfo mucInfo, iEncoding enc, bool extend) : this(work, mucInfo, enc) {
-            this.trackExtend = extend;
+        public Muc88(work work, MUCInfo mucInfo, iEncoding enc, MucomSetting setting) : this(work, mucInfo, enc) {
+            this.setting = setting;
         } 
 
         public Muc88(work work, MUCInfo mucInfo,iEncoding enc)
@@ -2950,7 +2950,8 @@ namespace mucomDotNET.Compiler
             {
                 return COMPI3();
             }
-            for (int i = 0; i < CommonData.MAX_WORK_CHANNEL; i++)
+            
+            for (int i = 0; i < setting.Channels; i++)
             {
                 work.tcnt[i] = 0;
                 work.lcnt[i] = 0;
@@ -3218,7 +3219,7 @@ namespace mucomDotNET.Compiler
             mucInfo.bufDst.Set(work.DATTBL + 4 * work.COMNOW + 0, new MmlDatum((byte)(work.MDATA - work.DATTBL + 1)));
             mucInfo.bufDst.Set(work.DATTBL + 4 * work.COMNOW + 1, new MmlDatum((byte)((work.MDATA - work.DATTBL + 1) >> 8)));
 
-            if (work.COMNOW == CommonData.MAX_WORK_CHANNEL)
+            if (work.COMNOW == setting.Channels)
             {
                 CMPEN1();
                 return;

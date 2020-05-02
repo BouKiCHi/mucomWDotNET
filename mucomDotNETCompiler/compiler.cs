@@ -28,6 +28,8 @@ namespace mucomDotNET.Compiler
         private iEncoding enc = null;
         private bool isIDE = false;
 
+        private MucomSetting setting;
+
         public enum EnmMUCOMFileType
         {
             unknown,
@@ -40,11 +42,15 @@ namespace mucomDotNET.Compiler
             this.enc = enc ?? myEncoding.Default;
         }
 
+        public Compiler(MucomSetting setting) {
+            this.enc = myEncoding.Default;
+            this.setting = setting;
+        }
+
         public void Init()
         {
-            bool UseTrackExtend = true;
             work = new work();
-            muc88 = new Muc88(work, mucInfo, enc, UseTrackExtend);
+            muc88 = new Muc88(work, mucInfo, enc, setting);
             msub = new Msub(work, mucInfo, enc);
             expand = new expand(work, mucInfo);
             smon = new smon(mucInfo);
@@ -326,7 +332,7 @@ namespace mucomDotNET.Compiler
                 work.compilerInfo.loopCount = new List<int>();
                 work.compilerInfo.bufferCount = new List<int>();
 
-                for (int i = 0; i < CommonData.MAX_WORK_CHANNEL; i++)
+                for (int i = 0; i < setting.Channels; i++)
                 {
 
                     if (work.lcnt[i] != 0) { work.lcnt[i] = work.tcnt[i] - (work.lcnt[i] - 1); }
@@ -370,8 +376,7 @@ namespace mucomDotNET.Compiler
                 int length = mucInfo.bufDst.Count;
                 mubsize = length;
 
-                var trackExtend = muc88.trackExtend;
-                var ProgramTitle = trackExtend ?  "- mucomW.NET -" : "- mucom.NET -";
+                var ProgramTitle = "- mucomW.NET -";
 
                 Log.WriteLine(LogLevel.INFO, ProgramTitle);
                 Log.WriteLine(LogLevel.INFO, "[ Total count ]");
@@ -490,7 +495,7 @@ namespace mucomDotNET.Compiler
 
             dat.Add(new MmlDatum(2));//ext_target(?)
 
-            dat.Add(new MmlDatum(11));//ext_channel_num
+            dat.Add(new MmlDatum(setting.Channels));//ext_channel_num
             dat.Add(new MmlDatum(0));
 
             dat.Add(new MmlDatum((byte)work.OTONUM));//ext_fmvoice_num

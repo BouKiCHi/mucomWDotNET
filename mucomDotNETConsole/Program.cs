@@ -24,9 +24,13 @@ namespace mucomDotNET.Console
 #endif
             int fnIndex = AnalyzeOption(args);
 
-            if (args == null || args.Length < 1)
+            var Setting = new MucomSetting();
+            Setting.Parse(args);
+
+            if (Setting.ShowUsage)
             {
                 WriteLine(LogLevel.ERROR, msg.get("E0600"));
+                Setting.ShowOptionHelp();
                 return;
             }
 
@@ -36,7 +40,7 @@ namespace mucomDotNET.Console
                 System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 #endif
 
-                Compile(args[fnIndex], (args.Length > fnIndex + 1 ? args[fnIndex + 1] : null));
+                Compile(Setting, Setting.Files[0], Setting.Files.Count > 1 ? Setting.Files[1] : null);
 
             }
             catch (Exception ex)
@@ -56,66 +60,66 @@ namespace mucomDotNET.Console
             System.Console.WriteLine(msg);
         }
 
-        static void Compile(string srcFile)
+        //static void Compile(string srcFile)
+        //{
+        //    try
+        //    {
+        //        Program.srcFile = srcFile;
+
+        //        Compiler.Compiler compiler = new Compiler.Compiler();
+        //        compiler.Init();
+
+        //        if (!isXml)
+        //        {
+        //            string destFileName = Path.Combine(
+        //                Path.GetDirectoryName(Path.GetFullPath(srcFile))
+        //                , string.Format("{0}.mub", Path.GetFileNameWithoutExtension(srcFile)));
+
+        //            using (FileStream sourceMML = new FileStream(srcFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+        //            using (FileStream destCompiledBin = new FileStream(destFileName, FileMode.Create, FileAccess.Write))
+        //            using (Stream bufferedDestStream = new BufferedStream(destCompiledBin))
+        //            {
+        //                compiler.Compile(sourceMML, bufferedDestStream, appendFileReaderCallback);
+        //            }
+        //        }
+        //        else
+        //        {
+        //            string destFileName = Path.Combine(
+        //                Path.GetDirectoryName(Path.GetFullPath(srcFile))
+        //                , string.Format("{0}.xml", Path.GetFileNameWithoutExtension(srcFile)));
+        //            MmlDatum[] dest = null;
+
+        //            using (FileStream sourceMML = new FileStream(srcFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+        //            {
+        //                dest = compiler.Compile(sourceMML, appendFileReaderCallback);
+        //            }
+
+        //            XmlSerializer serializer = new XmlSerializer(typeof(MmlDatum[]), typeof(MmlDatum[]).GetNestedTypes());
+        //            using (StreamWriter sw = new StreamWriter(destFileName, false, Encoding.UTF8))
+        //            {
+        //                serializer.Serialize(sw, dest);
+        //            }
+
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Log.WriteLine(LogLevel.FATAL, ex.Message);
+        //        Log.WriteLine(LogLevel.FATAL, ex.StackTrace);
+        //    }
+        //    finally
+        //    {
+        //    }
+
+        //}
+
+        static void Compile(MucomSetting setting, string srcFile, string destFile = null)
         {
             try
             {
                 Program.srcFile = srcFile;
 
-                Compiler.Compiler compiler = new Compiler.Compiler();
-                compiler.Init();
-
-                if (!isXml)
-                {
-                    string destFileName = Path.Combine(
-                        Path.GetDirectoryName(Path.GetFullPath(srcFile))
-                        , string.Format("{0}.mub", Path.GetFileNameWithoutExtension(srcFile)));
-
-                    using (FileStream sourceMML = new FileStream(srcFile, FileMode.Open, FileAccess.Read, FileShare.Read))
-                    using (FileStream destCompiledBin = new FileStream(destFileName, FileMode.Create, FileAccess.Write))
-                    using (Stream bufferedDestStream = new BufferedStream(destCompiledBin))
-                    {
-                        compiler.Compile(sourceMML, bufferedDestStream, appendFileReaderCallback);
-                    }
-                }
-                else
-                {
-                    string destFileName = Path.Combine(
-                        Path.GetDirectoryName(Path.GetFullPath(srcFile))
-                        , string.Format("{0}.xml", Path.GetFileNameWithoutExtension(srcFile)));
-                    MmlDatum[] dest = null;
-
-                    using (FileStream sourceMML = new FileStream(srcFile, FileMode.Open, FileAccess.Read, FileShare.Read))
-                    {
-                        dest = compiler.Compile(sourceMML, appendFileReaderCallback);
-                    }
-
-                    XmlSerializer serializer = new XmlSerializer(typeof(MmlDatum[]), typeof(MmlDatum[]).GetNestedTypes());
-                    using (StreamWriter sw = new StreamWriter(destFileName, false, Encoding.UTF8))
-                    {
-                        serializer.Serialize(sw, dest);
-                    }
-
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.WriteLine(LogLevel.FATAL, ex.Message);
-                Log.WriteLine(LogLevel.FATAL, ex.StackTrace);
-            }
-            finally
-            {
-            }
-
-        }
-
-        static void Compile(string srcFile, string destFile = null)
-        {
-            try
-            {
-                Program.srcFile = srcFile;
-
-                Compiler.Compiler compiler = new Compiler.Compiler();
+                Compiler.Compiler compiler = new Compiler.Compiler(setting);
                 compiler.Init();
 
                 //compiler.SetCompileSwitch("IDE");
