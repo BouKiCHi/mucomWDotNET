@@ -128,26 +128,25 @@ namespace mucomDotNET.Compiler
             return null;
         }
 
-        public bool Compile(Stream sourceMML, Stream destCompiledBin, Func<string, Stream> appendFileReaderCallback)
-        {
+        public bool Compile(Stream sourceMML, Stream destCompiledBin, Func<string, Stream> appendFileReaderCallback) {
             var dat = Compile(sourceMML, appendFileReaderCallback);
-            if (dat == null)
-            {
+            if (dat == null) {
                 return false;
             }
-            foreach (MmlDatum md in dat)
-            {
-                if (md == null)
-                {
-                    destCompiledBin.WriteByte(0);
-                }
-                else
-                {
-                    destCompiledBin.WriteByte((byte)md.dat);
-                }
-            }
+            SaveMmlDatum(destCompiledBin, dat);
             return true;
         }
+
+        public void SaveMmlDatum(Stream dest, MmlDatum[] dat) {
+            foreach (MmlDatum md in dat) {
+                if (md == null) {
+                    dest.WriteByte(0);
+                } else {
+                    dest.WriteByte((byte)md.dat);
+                }
+            }
+        }
+
 
         /// <summary>
 		/// ストリームから一括でバイナリを読み込む

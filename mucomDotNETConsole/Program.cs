@@ -125,22 +125,26 @@ namespace mucomDotNET.Console
                 //compiler.SetCompileSwitch("IDE");
                 //compiler.SetCompileSwitch("SkipPoint=R19:C30");
 
-                if (!isXml)
-                {
+                if (!isXml) {
+                    string destBinFileName = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(srcFile)), string.Format("{0}.bin", Path.GetFileNameWithoutExtension(srcFile)));
                     string destFileName = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(srcFile)), string.Format("{0}.mub", Path.GetFileNameWithoutExtension(srcFile)));
-                    if (destFile != null)
-                    {
+                    if (destFile != null) {
                         destFileName = destFile;
                     }
 
-                    using (FileStream sourceMML = new FileStream(srcFile, FileMode.Open, FileAccess.Read, FileShare.Read))
-                    using (FileStream destCompiledBin = new FileStream(destFileName, FileMode.Create, FileAccess.Write))
-                    using (Stream bufferedDestStream = new BufferedStream(destCompiledBin))
-                    {
-                        compiler.Compile(sourceMML, bufferedDestStream, appendFileReaderCallback);
-                    }
-                }
-                else
+                    Log.WriteLine(LogLevel.INFO, $"Output Mub : {destFileName}");
+                    Log.WriteLine(LogLevel.INFO, $"Output Bin : {destBinFileName}");
+
+                    MmlDatum[] Data = Compile(srcFile, compiler);
+
+                    MmlDatum[] BinData = CopyBinData(Data);
+
+                    byte[] MubBytes = ConvertToBytes(compiler, Data);
+                    byte[] BinBytes = ConvertToBytes(compiler, BinData);
+                    File.WriteAllBytes(destFileName, MubBytes);
+                    File.WriteAllBytes(destBinFileName, BinBytes);
+
+                } else
                 {
                     string destFileName = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(srcFile)), string.Format("{0}.xml", Path.GetFileNameWithoutExtension(srcFile)));
                     if (destFile != null)
@@ -173,6 +177,30 @@ namespace mucomDotNET.Console
 
         }
 
+        private static MmlDatum[] CopyBinData(MmlDatum[] data) {
+            var Start = Cmn.getLE32(data, 4);
+            var Length = Cmn.getLE32(data, 8);
+            MmlDatum[] BinData = new MmlDatum[Length];
+            Array.Copy(data, Start, BinData, 0, Length);
+            return BinData;
+        }
+
+        private static byte[] ConvertToBytes(Compiler.Compiler compiler, MmlDatum[] Data) {
+            var ms = new MemoryStream();
+            compiler.SaveMmlDatum(ms, Data);
+            var ret = ms.ToArray();
+            ms.Dispose();
+            return ret;
+        }
+
+        private static MmlDatum[] Compile(string srcFile, Compiler.Compiler compiler) {
+            MmlDatum[] Data;
+            using (FileStream sourceMML = new FileStream(srcFile, FileMode.Open, FileAccess.Read, FileShare.Read)) {
+                Data = compiler.Compile(sourceMML, appendFileReaderCallback);
+            }
+
+            return Data;
+        }
 
         private static Stream appendFileReaderCallback(string arg)
         {
