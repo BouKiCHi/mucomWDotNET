@@ -121,6 +121,11 @@ namespace mucomDotNET.Compiler
             return Tracks[num];
         }
 
+        /// <summary>
+        /// トラックとして使用できる文字ではない
+        /// </summary>
+        /// <param name="c"></param>
+        /// <returns></returns>
         public bool IsNotTrackCharacter(char c) {
             return Tracks.IndexOf(c) < 0;
         }

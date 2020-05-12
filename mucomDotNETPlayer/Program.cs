@@ -122,9 +122,11 @@ namespace mucomDotNET.Player
                     , loadADPCMOnly
                     );
 
-                List<Tuple<string, string>> tags = drv.GetTags();
-                if (tags != null) {
-                    foreach (Tuple<string, string> tag in tags) {
+                List<Tuple<string, string>> tags = ((Driver.Driver)drv).GetTags();
+                if (tags != null)
+                {
+                    foreach (Tuple<string, string> tag in tags)
+                    {
                         if (tag.Item1 == "") continue;
                         Log.WriteLine(LogLevel.INFO, string.Format("{0,-16} : {1}", tag.Item1, tag.Item2));
                     }

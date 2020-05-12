@@ -29,7 +29,7 @@ namespace mucomDotNET.Console
 
             if (Setting.ShowUsage)
             {
-                WriteLine(LogLevel.ERROR, msg.get("E0600"));
+                WriteLine(LogLevel.INFO, msg.get("I0600"));
                 Setting.ShowOptionHelp();
                 return;
             }
@@ -118,6 +118,18 @@ namespace mucomDotNET.Console
             try
             {
                 Program.srcFile = srcFile;
+                if (Path.GetExtension(srcFile) == "")
+                    srcFile = Path.Combine(
+                    Path.GetDirectoryName(Path.GetFullPath(srcFile))
+                    , string.Format("{0}.muc", Path.GetFileNameWithoutExtension(srcFile))
+                    );
+
+                srcFile = Path.Combine(
+                Path.GetDirectoryName(Path.GetFullPath(srcFile))
+                , srcFile
+                );
+
+                Program.srcFile = srcFile;
 
                 Compiler.Compiler compiler = new Compiler.Compiler(setting);
                 compiler.Init();
@@ -131,6 +143,13 @@ namespace mucomDotNET.Console
                     if (destFile != null) {
                         destFileName = destFile;
                     }
+
+                    if (!File.Exists(srcFile))
+                    {
+                        Log.WriteLine(LogLevel.ERROR, string.Format(msg.get("E0601"), srcFile));
+                        return;
+                    }
+
 
                     Log.WriteLine(LogLevel.INFO, $"Output Mub : {destFileName}");
                     Log.WriteLine(LogLevel.INFO, $"Output Bin : {destBinFileName}");
@@ -229,7 +248,7 @@ namespace mucomDotNET.Console
             if (args.Length < 1) return 0;
 
             int i = 0;
-            while (args[i] != null && args[i].Length > 0 && args[i][0] == '-')
+            while (i<args.Length &&args[i] != null && args[i].Length > 0 && args[i][0] == '-')
             {
                 string op = args[i].Substring(1).ToUpper();
                 if (op == "LOGLEVEL=FATAL")

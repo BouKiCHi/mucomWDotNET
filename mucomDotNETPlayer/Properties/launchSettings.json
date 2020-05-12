@@ -2,8 +2,7 @@
   "profiles": {
     "Player": {
       "commandName": "Project",
-      "commandLineArgs": "s3.mub",
-      "workingDirectory": "C:\\workspace\\mucom88_work\\songtest\\mod"
+      "commandLineArgs": "c:\\temp\\ssgtest.mub"
     }
   }
 }
